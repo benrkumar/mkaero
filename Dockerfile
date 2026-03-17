@@ -24,9 +24,8 @@ COPY alembic.ini ./
 # Copy built frontend into backend static dir
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+EXPOSE 8080
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
