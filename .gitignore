@@ -37,3 +37,9 @@ Thumbs.db
 
 # Playwright browser binaries
 .playwright/
+
+# Local DB
+mk_outreach.db
+
+# Claude internals
+.claude/
