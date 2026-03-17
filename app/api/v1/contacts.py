@@ -130,6 +130,38 @@ def bulk_tag_contacts(body: dict, db: Session = Depends(get_db)):
     return {"updated": updated}
 
 
+@router.post("/bulk")
+def bulk_create_contacts(body: List[ContactCreate], db: Session = Depends(get_db)):
+    """Batch-create contacts, deduplicating by email. Returns created/skipped counts."""
+    created = 0
+    skipped = 0
+    # Collect emails already seen in this batch to handle intra-batch duplicates
+    seen_in_batch: set = set()
+
+    for item in body:
+        email = item.email.strip() if item.email else ""
+        if not email:
+            skipped += 1
+            continue
+
+        if email in seen_in_batch:
+            skipped += 1
+            continue
+
+        existing = db.query(Contact).filter(Contact.email == email).first()
+        if existing:
+            skipped += 1
+            continue
+
+        contact = Contact(**item.model_dump())
+        db.add(contact)
+        seen_in_batch.add(email)
+        created += 1
+
+    db.commit()
+    return {"created": created, "skipped": skipped}
+
+
 @router.post("/upload/preview")
 async def upload_csv_preview(file: UploadFile = File(...)):
     """Preview first 5 rows of a CSV upload and return headers."""
