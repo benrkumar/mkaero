@@ -13,7 +13,7 @@ function Section({
   return (
     <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5">
       <div className="flex items-start justify-between mb-3">
-        <h3 className="font-semibold text-slate-900 dark:text-white">{title}
+        <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
         <span className="text-xs bg-slate-100 dark:bg-surface-500 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-surface-400/40 rounded-full px-2.5 py-0.5">
           .env
         </span>
