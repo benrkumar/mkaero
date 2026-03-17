@@ -1,7 +1,10 @@
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.config import settings
 
@@ -64,3 +67,14 @@ app.include_router(v1_router, prefix="/api/v1")
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "Indo Aerial Systems Outreach API"}
+
+
+# Serve React frontend (production build)
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(_frontend_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_frontend_dist, "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        index = os.path.join(_frontend_dist, "index.html")
+        return FileResponse(index)

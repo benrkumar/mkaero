@@ -1,0 +1,16 @@
+.git
+.claude
+.env
+*.env
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+node_modules
+frontend/node_modules
+frontend/dist
+.playwright
+mk_outreach.db
+docker-compose.yml

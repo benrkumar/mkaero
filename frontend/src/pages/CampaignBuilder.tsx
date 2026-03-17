@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createCampaign,
@@ -15,6 +15,15 @@ type Step = {
   subject: string;
   body: string;
   generating: boolean;
+};
+
+type Contact = {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  title?: string;
+  company?: string;
+  email?: string;
 };
 
 const GOALS = [
@@ -68,11 +77,17 @@ export default function CampaignBuilder() {
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState(GOALS[0]);
 
-  // Step 2
+  // Step 2 — tag filter
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
+
+  // Step 2 — contact picker
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactSearch, setContactSearch] = useState("");
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
 
   // Step 3
   const [emailSteps, setEmailSteps] = useState<Step[]>([
@@ -88,8 +103,14 @@ export default function CampaignBuilder() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
 
+  // Load tags and contacts on mount
   useEffect(() => {
     getAllTags().then(setAllTags).catch(() => {});
+    setContactsLoading(true);
+    getContacts({ page_size: 200, has_email: true })
+      .then((r) => setAllContacts(r.items ?? r ?? []))
+      .catch(() => setAllContacts([]))
+      .finally(() => setContactsLoading(false));
   }, []);
 
   const fetchAudienceCount = async () => {
@@ -114,6 +135,30 @@ export default function CampaignBuilder() {
     setSelectedTags((ts) =>
       ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]
     );
+
+  const toggleContact = (id: string) =>
+    setSelectedContactIds((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
+    );
+
+  // Filter contacts by search query
+  const filteredContacts = useMemo(() => {
+    const q = contactSearch.toLowerCase().trim();
+    if (!q) return allContacts;
+    return allContacts.filter(
+      (c) =>
+        `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase().includes(q) ||
+        (c.company ?? "").toLowerCase().includes(q) ||
+        (c.email ?? "").toLowerCase().includes(q)
+    );
+  }, [allContacts, contactSearch]);
+
+  // Audience summary: tag count + individual picks
+  const tagCount = audienceCount ?? 0;
+  const individualCount = selectedContactIds.length;
+  // Avoid double-counting contacts that are already in tag audience
+  // We report them separately and let the server deduplicate
+  const totalEstimate = tagCount + individualCount;
 
   const generateStepContent = async (idx: number) => {
     setEmailSteps((prev) =>
@@ -205,6 +250,8 @@ export default function CampaignBuilder() {
           body_template: s.body,
         });
       }
+
+      // Enroll contacts from tag filter
       if (selectedTags.length > 0) {
         const contacts = await getContacts({
           tag: selectedTags[0],
@@ -218,6 +265,12 @@ export default function CampaignBuilder() {
           );
         }
       }
+
+      // Enroll individually selected contacts (deduplicated server-side)
+      if (selectedContactIds.length > 0) {
+        await enrollContacts(campaign.id, selectedContactIds);
+      }
+
       navigate(`/campaigns/${campaign.id}`);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
@@ -331,7 +384,7 @@ export default function CampaignBuilder() {
                   <p className="text-2xl font-bold font-mono text-sky-400">
                     {audienceCount.toLocaleString()}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">contacts match</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">from tags</p>
                 </>
               ) : (
                 <p className="text-sm text-slate-400">&#8212;</p>
@@ -339,12 +392,13 @@ export default function CampaignBuilder() {
             </div>
           </div>
 
+          {/* Tag filter */}
           <div>
             <label className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-3 block">
               Filter by Tags
             </label>
             {allTags.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 No tags yet. Import contacts with tags from Lead Finder first.
               </p>
             ) : (
@@ -356,7 +410,7 @@ export default function CampaignBuilder() {
                     className={`px-3 py-1.5 rounded-lg text-sm transition border ${
                       selectedTags.includes(t)
                         ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
-                        : "bg-surface-600 text-slate-400 border-surface-400/50 hover:text-white"
+                        : "bg-slate-50 dark:bg-surface-600 text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     {t}
@@ -365,7 +419,7 @@ export default function CampaignBuilder() {
                 {selectedTags.length > 0 && (
                   <button
                     onClick={() => setSelectedTags([])}
-                    className="text-xs text-slate-400 hover:text-white px-2"
+                    className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white px-2"
                   >
                     Clear
                   </button>
@@ -379,10 +433,197 @@ export default function CampaignBuilder() {
             )}
           </div>
 
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200 dark:bg-surface-400/40" />
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-widest">
+              or pick individually
+            </span>
+            <div className="flex-1 h-px bg-slate-200 dark:bg-surface-400/40" />
+          </div>
+
+          {/* Contact picker */}
+          <div>
+            <label className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-3 block">
+              Individual Contacts
+            </label>
+
+            {/* Search input */}
+            <div className="relative mb-2">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"
+                />
+              </svg>
+              <input
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 transition"
+                placeholder="Search by name, company, or email…"
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Scrollable contact list */}
+            <div className="max-h-64 overflow-y-auto border border-slate-200 dark:border-surface-400/40 rounded-lg bg-slate-50 dark:bg-surface-600">
+              {contactsLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-slate-400 dark:text-slate-500 text-sm">
+                  <svg
+                    className="animate-spin w-4 h-4 text-sky-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  Loading contacts…
+                </div>
+              ) : filteredContacts.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
+                  {contactSearch ? "No contacts match your search." : "No contacts found."}
+                </p>
+              ) : (
+                filteredContacts.map((contact) => {
+                  const isSelected = selectedContactIds.includes(contact.id);
+                  const fullName =
+                    [contact.first_name, contact.last_name].filter(Boolean).join(" ") ||
+                    contact.email ||
+                    contact.id;
+                  return (
+                    <label
+                      key={contact.id}
+                      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer border-b border-slate-200 dark:border-surface-400/30 last:border-b-0 transition ${
+                        isSelected
+                          ? "bg-sky-50 dark:bg-sky-500/10"
+                          : "hover:bg-white dark:hover:bg-surface-500/40"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-sky-500 shrink-0"
+                        checked={isSelected}
+                        onChange={() => toggleContact(contact.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-medium truncate ${
+                            isSelected
+                              ? "text-sky-600 dark:text-sky-300"
+                              : "text-slate-900 dark:text-white"
+                          }`}
+                        >
+                          {fullName}
+                        </p>
+                        {(contact.title || contact.company) && (
+                          <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                            {[contact.title, contact.company].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <svg
+                          className="w-4 h-4 text-sky-500 shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Select/clear all helpers */}
+            {!contactsLoading && filteredContacts.length > 0 && (
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={() =>
+                    setSelectedContactIds((prev) => {
+                      const ids = new Set(prev);
+                      filteredContacts.forEach((c) => ids.add(c.id));
+                      return Array.from(ids);
+                    })
+                  }
+                  className="text-xs text-sky-500 hover:text-sky-400 transition"
+                >
+                  Select all visible
+                </button>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <button
+                  onClick={() =>
+                    setSelectedContactIds((prev) => {
+                      const visibleIds = new Set(filteredContacts.map((c) => c.id));
+                      return prev.filter((id) => !visibleIds.has(id));
+                    })
+                  }
+                  className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
+                >
+                  Deselect all visible
+                </button>
+                {selectedContactIds.length > 0 && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-600">·</span>
+                    <button
+                      onClick={() => setSelectedContactIds([])}
+                      className="text-xs text-red-400 hover:text-red-300 transition"
+                    >
+                      Clear all
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Audience summary */}
+          <div className="bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/40 rounded-lg px-4 py-3">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              <span className="font-mono font-semibold text-sky-400">{tagCount.toLocaleString()}</span>
+              <span className="text-slate-500 dark:text-slate-400"> from tags</span>
+              {" + "}
+              <span className="font-mono font-semibold text-violet-400">
+                {individualCount.toLocaleString()}
+              </span>
+              <span className="text-slate-500 dark:text-slate-400"> individually selected</span>
+              {" = "}
+              <span className="font-mono font-semibold text-emerald-400">
+                {totalEstimate.toLocaleString()}
+              </span>
+              <span className="text-slate-500 dark:text-slate-400"> total</span>
+              {tagCount > 0 && individualCount > 0 && (
+                <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
+                  (duplicates will be deduplicated)
+                </span>
+              )}
+            </p>
+          </div>
+
           <div className="flex justify-between pt-2">
             <button
               onClick={() => setWizStep(1)}
-              className="bg-surface-600 border border-surface-400/50 text-slate-300 hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
+              className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
             >
               &#8592; Back
             </button>
@@ -401,14 +642,14 @@ export default function CampaignBuilder() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">Email Sequence</h2>
-              <p className="text-slate-400 text-sm">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Email Sequence</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">
                 Build your drip sequence. Use AI to generate content per step.
               </p>
             </div>
             <button
               onClick={addEmailStep}
-              className="text-sm bg-surface-600 border border-surface-400/50 text-slate-300 hover:text-white rounded-lg px-3 py-2 transition"
+              className="text-sm bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-3 py-2 transition"
             >
               + Add Step
             </button>
@@ -419,18 +660,18 @@ export default function CampaignBuilder() {
               {emailSteps.map((s, idx) => (
                 <div
                   key={s.id}
-                  className={`bg-surface-700 border rounded-xl transition ${
+                  className={`bg-white dark:bg-surface-700 border rounded-xl transition ${
                     previewStepIdx === idx
                       ? "border-sky-500/50"
-                      : "border-surface-400/40"
+                      : "border-slate-200 dark:border-surface-400/40"
                   }`}
                 >
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-400/30">
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-surface-400/30">
                     <div
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition ${
                         previewStepIdx === idx
                           ? "bg-sky-500 text-white"
-                          : "bg-surface-500 text-slate-400"
+                          : "bg-slate-100 dark:bg-surface-500 text-slate-400"
                       }`}
                     >
                       {idx + 1}
@@ -440,14 +681,10 @@ export default function CampaignBuilder() {
                       <input
                         type="number"
                         min={0}
-                        className="w-14 bg-surface-500 border border-surface-400/50 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-sky-500"
+                        className="w-14 bg-slate-50 dark:bg-surface-500 border border-slate-200 dark:border-surface-400/50 rounded px-2 py-1 text-xs text-slate-900 dark:text-white text-center outline-none focus:border-sky-500"
                         value={s.delay_days}
                         onChange={(e) =>
-                          updateStepField(
-                            idx,
-                            "delay_days",
-                            parseInt(e.target.value) || 0
-                          )
+                          updateStepField(idx, "delay_days", parseInt(e.target.value) || 0)
                         }
                       />
                     </div>
@@ -458,11 +695,7 @@ export default function CampaignBuilder() {
                     >
                       {s.generating ? (
                         <>
-                          <svg
-                            className="animate-spin w-3 h-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
+                          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                             <circle
                               className="opacity-25"
                               cx="12"
@@ -485,11 +718,9 @@ export default function CampaignBuilder() {
                     </button>
                     <button
                       onClick={() =>
-                        setPreviewStepIdx(
-                          previewStepIdx === idx ? null : idx
-                        )
+                        setPreviewStepIdx(previewStepIdx === idx ? null : idx)
                       }
-                      className="text-xs text-slate-400 hover:text-white"
+                      className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     >
                       {previewStepIdx === idx ? "\u25bc" : "\u25b6"} Preview
                     </button>
@@ -504,21 +735,17 @@ export default function CampaignBuilder() {
                   </div>
                   <div className="p-4 space-y-3">
                     <input
-                      className="w-full bg-surface-600 border border-surface-400/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 transition"
+                      className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition"
                       placeholder={`Step ${idx + 1} subject line...`}
                       value={s.subject}
-                      onChange={(e) =>
-                        updateStepField(idx, "subject", e.target.value)
-                      }
+                      onChange={(e) => updateStepField(idx, "subject", e.target.value)}
                     />
                     <textarea
                       rows={4}
-                      className="w-full bg-surface-600 border border-surface-400/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 transition resize-none"
+                      className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition resize-none"
                       placeholder={`Email body for step ${idx + 1}... Use {{first_name}}, {{company}}, {{title}}.`}
                       value={s.body}
-                      onChange={(e) =>
-                        updateStepField(idx, "body", e.target.value)
-                      }
+                      onChange={(e) => updateStepField(idx, "body", e.target.value)}
                     />
                   </div>
                 </div>
@@ -527,23 +754,23 @@ export default function CampaignBuilder() {
 
             {/* Preview panel */}
             <div className="col-span-1">
-              <div className="bg-surface-700 border border-surface-400/40 rounded-xl p-4 sticky top-6">
+              <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 sticky top-6">
                 <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-3">
                   Preview
                 </p>
                 {previewStepIdx !== null && emailSteps[previewStepIdx] ? (
                   <div className="space-y-3">
-                    <div className="bg-surface-600 rounded-lg p-3">
+                    <div className="bg-slate-50 dark:bg-surface-600 rounded-lg p-3">
                       <p className="text-xs text-slate-500 mb-1">Subject</p>
-                      <p className="text-sm text-white">
+                      <p className="text-sm text-slate-900 dark:text-white">
                         {emailSteps[previewStepIdx].subject
                           .replace(/\{\{first_name\}\}/g, "Arjun")
                           .replace(/\{\{company\}\}/g, "Aeronext") || "\u2014"}
                       </p>
                     </div>
-                    <div className="bg-surface-600 rounded-lg p-3">
+                    <div className="bg-slate-50 dark:bg-surface-600 rounded-lg p-3">
                       <p className="text-xs text-slate-500 mb-1">Body</p>
-                      <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">
+                      <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
                         {emailSteps[previewStepIdx].body
                           .replace(/\{\{first_name\}\}/g, "Arjun")
                           .replace(/\{\{last_name\}\}/g, "Sharma")
@@ -553,7 +780,7 @@ export default function CampaignBuilder() {
                           "No content yet."}
                       </p>
                     </div>
-                    <p className="text-xs text-slate-600 text-center">
+                    <p className="text-xs text-slate-400 dark:text-slate-600 text-center">
                       Sample contact preview
                     </p>
                   </div>
@@ -569,7 +796,7 @@ export default function CampaignBuilder() {
           <div className="flex justify-between pt-2">
             <button
               onClick={() => setWizStep(2)}
-              className="bg-surface-600 border border-surface-400/50 text-slate-300 hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
+              className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
             >
               &#8592; Back
             </button>
@@ -586,19 +813,19 @@ export default function CampaignBuilder() {
       {/* ── Step 4: Launch ── */}
       {wizStep === 4 && (
         <div className="space-y-5">
-          <h2 className="text-lg font-semibold text-white">Review &amp; Launch</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Review &amp; Launch</h2>
 
           <div className="grid grid-cols-2 gap-5">
-            <div className="bg-surface-700 border border-surface-400/40 rounded-xl p-5 space-y-4">
-              <h3 className="font-medium text-white text-sm">Campaign Summary</h3>
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-4">
+              <h3 className="font-medium text-slate-900 dark:text-white text-sm">Campaign Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Name</span>
-                  <span className="text-white font-medium">{name}</span>
+                  <span className="text-slate-900 dark:text-white font-medium">{name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Goal</span>
-                  <span className="text-white text-right max-w-[180px]">{goal}</span>
+                  <span className="text-slate-900 dark:text-white text-right max-w-[180px]">{goal}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Email Steps</span>
@@ -607,20 +834,28 @@ export default function CampaignBuilder() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Audience</span>
-                  <span className="text-white">
+                  <span className="text-slate-400">Audience (tags)</span>
+                  <span className="text-slate-900 dark:text-white">
                     {selectedTags.length ? selectedTags.join(", ") : "All contacts"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Matching Contacts</span>
-                  <span className="text-emerald-400 font-mono">
-                    {audienceCount ?? "?"}
+                  <span className="text-slate-400">From tags</span>
+                  <span className="text-emerald-400 font-mono">{tagCount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Individually selected</span>
+                  <span className="text-violet-400 font-mono">{individualCount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-100 dark:border-surface-400/30 pt-2">
+                  <span className="text-slate-500 font-medium">Total estimate</span>
+                  <span className="text-sky-400 font-mono font-semibold">
+                    {totalEstimate.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Duration</span>
-                  <span className="text-white">
+                  <span className="text-slate-900 dark:text-white">
                     {emailSteps.length > 0
                       ? `${emailSteps[emailSteps.length - 1].delay_days} days`
                       : "\u2014"}
@@ -629,9 +864,9 @@ export default function CampaignBuilder() {
               </div>
             </div>
 
-            <div className="bg-surface-700 border border-surface-400/40 rounded-xl p-5 space-y-4">
-              <h3 className="font-medium text-white text-sm">Launch Settings</h3>
-              <label className="flex items-start gap-3 cursor-pointer p-3 bg-surface-600 rounded-lg border border-surface-400/40">
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-4">
+              <h3 className="font-medium text-slate-900 dark:text-white text-sm">Launch Settings</h3>
+              <label className="flex items-start gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-surface-600 rounded-lg border border-slate-200 dark:border-surface-400/40">
                 <input
                   type="checkbox"
                   checked={autoStart}
@@ -639,14 +874,14 @@ export default function CampaignBuilder() {
                   className="mt-0.5 accent-emerald-500"
                 />
                 <div>
-                  <p className="text-sm font-medium text-white">Auto-start campaign</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">Auto-start campaign</p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Start sending immediately. Otherwise saved as draft.
                   </p>
                 </div>
               </label>
-              <div className="p-3 bg-surface-600 rounded-lg border border-surface-400/40 space-y-1">
-                <p className="text-xs font-medium text-slate-300">Sequence</p>
+              <div className="p-3 bg-slate-50 dark:bg-surface-600 rounded-lg border border-slate-200 dark:border-surface-400/40 space-y-1">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Sequence</p>
                 {emailSteps
                   .filter((s) => s.subject || s.body)
                   .map((s, i) => (
@@ -661,7 +896,7 @@ export default function CampaignBuilder() {
           <div className="flex justify-between pt-2">
             <button
               onClick={() => setWizStep(3)}
-              className="bg-surface-600 border border-surface-400/50 text-slate-300 hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
+              className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
             >
               &#8592; Back
             </button>
@@ -672,7 +907,7 @@ export default function CampaignBuilder() {
                   handleLaunch();
                 }}
                 disabled={launching}
-                className="bg-surface-600 border border-surface-400/50 text-slate-300 hover:text-white rounded-lg px-5 py-2.5 text-sm transition disabled:opacity-50"
+                className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-5 py-2.5 text-sm transition disabled:opacity-50"
               >
                 Save as Draft
               </button>

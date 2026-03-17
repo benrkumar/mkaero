@@ -44,6 +44,9 @@ export const uploadCSV = (file: File, columnMapping: Record<string, string>, imp
   return api.post("/contacts/upload/csv", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
 };
 
+export const bulkCreateContacts = (contacts: object[]) =>
+  api.post("/contacts/bulk", contacts).then((r) => r.data);
+
 // ── Apollo ────────────────────────────────────────────────────────────────
 export const fetchApolloLeads = (body: object) =>
   api.post("/apollo/fetch", body).then((r) => r.data);
@@ -86,6 +89,9 @@ export const addStep = (campaignId: string, body: object) =>
 export const updateStep = (stepId: string, body: object) =>
   api.patch(`/sequences/${stepId}`, body).then((r) => r.data);
 
+export const updateSequenceStep = (stepId: string, data: object) =>
+  api.patch(`/sequences/${stepId}`, data).then((r) => r.data);
+
 export const deleteStep = (stepId: string) =>
   api.delete(`/sequences/${stepId}`);
 
@@ -103,6 +109,9 @@ export const getOverview = () =>
 export const getCampaignAnalytics = (id: string) =>
   api.get(`/analytics/campaigns/${id}`).then((r) => r.data);
 
+export const getCampaignStepAnalytics = (campaignId: string) =>
+  api.get(`/analytics/campaigns/${campaignId}/steps`).then((r) => r.data);
+
 // ── AI Wizard ─────────────────────────────────────────────────────────────
 export const generateCampaign = (body: {
   description: string;
@@ -119,5 +128,23 @@ export const launchLinkedInPhantom = (body: {
   step_type: string;
   batch_size?: number;
 }) => api.post("/wizard/linkedin/launch", body).then((r) => r.data);
+
+// ── Phantombuster ─────────────────────────────────────────────────────────
+export const getPhantomAgents = () =>
+  api.get("/phantombuster/agents").then((r) => r.data);
+
+export const getPhantomAgent = (id: string) =>
+  api.get(`/phantombuster/agents/${id}`).then((r) => r.data);
+
+export const launchPhantomAgent = (id: string, args?: object) =>
+  api
+    .post(`/phantombuster/agents/${id}/launch`, { argument: args })
+    .then((r) => r.data);
+
+export const abortPhantomAgent = (id: string) =>
+  api.post(`/phantombuster/agents/${id}/abort`).then((r) => r.data);
+
+export const getPhantomContainer = (id: string) =>
+  api.get(`/phantombuster/containers/${id}`).then((r) => r.data);
 
 export default api;

@@ -11,4 +11,7 @@ export default defineConfig({
       "/webhooks": "http://localhost:8003",
     },
   },
+  build: {
+    outDir: "dist",
+  },
 });

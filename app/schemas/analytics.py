@@ -38,3 +38,15 @@ class OverviewAnalytics(BaseModel):
     total_contacts: int
     email: EmailStats
     linkedin: LinkedInStats
+
+
+class StepAnalytics(BaseModel):
+    step_order: int
+    channel: str
+    delay_days: int
+    subject_template: str
+    sent: int = 0
+    opened: int = 0
+    clicked: int = 0
+    open_rate: float = 0.0
+    click_rate: float = 0.0

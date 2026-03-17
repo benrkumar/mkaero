@@ -10,11 +10,13 @@ from app.models.campaign_lead import CampaignLead, CampaignLeadStatus
 from app.models.contact import Contact
 from app.models.email_event import EmailEvent, EmailEventType
 from app.models.linkedin_event import LinkedInEvent, LinkedInEventType
+from app.models.sequence_step import SequenceStep
 from app.schemas.analytics import (
     CampaignAnalytics,
     EmailStats,
     LinkedInStats,
     OverviewAnalytics,
+    StepAnalytics,
 )
 
 
@@ -110,6 +112,69 @@ def get_campaign_analytics(db: Session, campaign_id: str) -> CampaignAnalytics:
         email=_email_stats_for_leads(db, lead_ids),
         linkedin=_linkedin_stats_for_leads(db, lead_ids),
     )
+
+
+def get_step_analytics(db: Session, campaign_id: str) -> list[dict]:
+    """
+    Return per-step analytics for a campaign.
+
+    EmailEvent.step_order matches SequenceStep.step_order for the same campaign.
+    The join path is:
+        SequenceStep.campaign_id == campaign_id
+        EmailEvent.step_order   == SequenceStep.step_order
+        EmailEvent.campaign_lead_id -> CampaignLead.id
+        CampaignLead.campaign_id    == campaign_id
+    """
+    steps = (
+        db.query(SequenceStep)
+        .filter(SequenceStep.campaign_id == campaign_id)
+        .order_by(SequenceStep.step_order)
+        .all()
+    )
+
+    # Collect all campaign_lead ids for this campaign once.
+    lead_ids = [
+        str(r[0])
+        for r in db.query(CampaignLead.id)
+        .filter(CampaignLead.campaign_id == campaign_id)
+        .all()
+    ]
+
+    result = []
+    for step in steps:
+        def count_step_event(event_type: EmailEventType) -> int:
+            if not lead_ids:
+                return 0
+            return (
+                db.query(func.count(EmailEvent.id))
+                .filter(
+                    EmailEvent.campaign_lead_id.in_(lead_ids),
+                    EmailEvent.step_order == step.step_order,
+                    EmailEvent.event_type == event_type,
+                )
+                .scalar()
+                or 0
+            )
+
+        sent = count_step_event(EmailEventType.sent)
+        opened = count_step_event(EmailEventType.opened)
+        clicked = count_step_event(EmailEventType.clicked)
+
+        result.append(
+            StepAnalytics(
+                step_order=step.step_order,
+                channel=step.channel.value if hasattr(step.channel, "value") else str(step.channel),
+                delay_days=step.delay_days,
+                subject_template=step.subject_template or "",
+                sent=sent,
+                opened=opened,
+                clicked=clicked,
+                open_rate=_safe_rate(opened, sent),
+                click_rate=_safe_rate(clicked, sent),
+            ).model_dump()
+        )
+
+    return result
 
 
 def get_overview_analytics(db: Session) -> OverviewAnalytics:

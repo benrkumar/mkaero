@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import contacts, campaigns, sequences, apollo, content, analytics, webhooks, wizard
+from app.api.v1 import phantombuster as phantombuster_router
 
 router = APIRouter()
 
@@ -12,3 +13,4 @@ router.include_router(content.router, prefix="/content", tags=["Content"])
 router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 router.include_router(wizard.router, prefix="/wizard", tags=["AI Wizard"])
+router.include_router(phantombuster_router.router)
