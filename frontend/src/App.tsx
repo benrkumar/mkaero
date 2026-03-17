@@ -79,7 +79,7 @@ function Sidebar() {
           </div>
           <div className="min-w-0">
             <p className="text-xs text-slate-500 dark:text-surface-100 truncate">Indo Aerial Systems</p>
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Outreach Hub</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Marketing Control Center</p>
           </div>
         </div>
       </div>

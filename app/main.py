@@ -11,8 +11,8 @@ from app.config import settings
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
-    title="Indo Aerial Systems — Outreach Automation",
-    description="Email & LinkedIn drip campaign automation for Indo Aerial Systems Pvt Ltd.",
+    title="Marketing Control Center",
+    description="Email & LinkedIn drip campaign automation platform.",
     version="1.0.0",
 )
 
@@ -66,7 +66,7 @@ app.include_router(v1_router, prefix="/api/v1")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "Indo Aerial Systems Outreach API"}
+    return {"status": "ok", "service": "Marketing Control Center API"}
 
 
 # Serve React frontend (production build)
