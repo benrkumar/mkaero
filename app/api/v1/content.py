@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_db
@@ -8,6 +9,37 @@ from app.schemas.content import ContentPreviewRequest, EmailContentOut, LinkedIn
 from app.services.content_service import ContentService
 
 router = APIRouter()
+
+
+class RenderPreviewRequest(BaseModel):
+    subject_template: str = ""
+    body_template: str = ""
+
+class RenderPreviewOut(BaseModel):
+    subject: str
+    body_text: str
+    body_html: str
+
+@router.post("/render-preview", response_model=RenderPreviewOut)
+def render_preview(body: RenderPreviewRequest):
+    from app.services.email_service import render_html_body
+
+    sample = {
+        "first_name": "Alex", "last_name": "Chen", "company": "Acme Corp",
+        "title": "Head of Operations", "city": "Mumbai", "industry": "Manufacturing"
+    }
+
+    def render(template: str) -> str:
+        result = template or ""
+        for k, v in sample.items():
+            result = result.replace("{{" + k + "}}", v)
+        return result
+
+    subject = render(body.subject_template)
+    body_text = render(body.body_template)
+    html_body = render_html_body(body_text)
+
+    return RenderPreviewOut(subject=subject, body_text=body_text, body_html=html_body)
 
 
 @router.post("/preview/email", response_model=EmailContentOut)

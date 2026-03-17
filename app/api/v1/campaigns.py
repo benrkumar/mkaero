@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_db
@@ -153,6 +154,52 @@ def unenroll_lead(campaign_id: str, lead_id: str, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Lead not found in campaign")
     db.delete(lead)
     db.commit()
+
+
+class TestEmailRequest(BaseModel):
+    step_id: str
+    to_email: str
+    to_name: str = "Test User"
+
+@router.post("/{campaign_id}/test-email")
+def send_test_email(campaign_id: str, body: TestEmailRequest, db: Session = Depends(get_db)):
+    from app.models.sequence_step import SequenceStep
+    from app.services.email_service import EmailService, render_html_body
+    import re
+
+    step = db.query(SequenceStep).filter(SequenceStep.id == body.step_id).first()
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+
+    # Sample contact for preview rendering
+    sample = {
+        "first_name": "Alex", "last_name": "Chen", "company": "Acme Corp",
+        "title": "Head of Operations", "city": "Mumbai", "industry": "Manufacturing"
+    }
+
+    def render(template: str) -> str:
+        result = template or ""
+        for k, v in sample.items():
+            result = result.replace("{{" + k + "}}", v)
+        return result
+
+    subject = render(step.subject_template or "")
+    body_text = render(step.body_template or "")
+    html_body = render_html_body(body_text)
+
+    svc = EmailService(db)
+    msg_id = svc.send(
+        to_email=body.to_email,
+        to_name=body.to_name,
+        subject=f"[TEST] {subject}",
+        text_body=body_text,
+        html_body=html_body,
+        tracking_id="test",
+        campaign_id="test",
+    )
+    if msg_id:
+        return {"sent": True, "message_id": msg_id}
+    raise HTTPException(status_code=502, detail="Failed to send test email. Check Mailgun credentials.")
 
 
 @router.delete("/{campaign_id}", status_code=204)

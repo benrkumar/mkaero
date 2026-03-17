@@ -19,6 +19,37 @@ logger = logging.getLogger(__name__)
 MAILGUN_API_BASE = "https://api.mailgunapp.com/v3"  # EU: api.eu.mailgun.net
 
 
+def render_html_body(body_text: str) -> str:
+    """Wrap plain text email body in a clean HTML template."""
+    html_body = body_text.replace("\n", "<br>")
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+        <tr><td style="padding:40px 48px 32px;">
+          <div style="font-size:15px;line-height:1.7;color:#1e293b;">
+            {html_body}
+          </div>
+        </td></tr>
+        <tr><td style="padding:24px 48px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+          <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+            You received this email because you opted in to our outreach program.<br>
+            To unsubscribe, reply with "unsubscribe" in the subject line.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
 class EmailService:
     def __init__(self, db: Session):
         self.api_key = get_setting(db, "mailgun_api_key")
@@ -34,6 +65,7 @@ class EmailService:
         text_body: str,
         tracking_id: str,
         campaign_id: str,
+        html_body: str | None = None,
     ) -> str | None:
         """
         Send an email via Mailgun.
@@ -50,6 +82,7 @@ class EmailService:
             "to": f"{to_name} <{to_email}>",
             "subject": subject,
             "text": text_body,
+            **({"html": html_body} if html_body is not None else {}),
             "o:tracking-opens": "yes",
             "o:tracking-clicks": "yes",
             "o:tag": [campaign_id],
