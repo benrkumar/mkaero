@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createCampaign,
@@ -26,6 +26,8 @@ type Contact = {
   email?: string;
 };
 
+type Toast = { message: string; type: "success" | "error" } | null;
+
 const GOALS = [
   "Book a 15-min Demo Call",
   "Request Product Sample",
@@ -33,6 +35,27 @@ const GOALS = [
   "Get a Quote",
   "Brand Awareness",
 ];
+
+const VARIABLES = ["first_name", "last_name", "company", "title", "city", "industry"];
+
+const SAMPLE_CONTACT = {
+  first_name: "Alex",
+  last_name: "Chen",
+  company: "Acme Corp",
+  title: "Head of Operations",
+  city: "Mumbai",
+  industry: "Manufacturing",
+  email: "alex@acmecorp.com",
+};
+
+function SpinnerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className ?? "w-3 h-3"}`} fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
 
 function ProgressBar({ step }: { step: number }) {
   const steps = ["Details", "Audience", "Sequence", "Launch"];
@@ -68,9 +91,97 @@ function ProgressBar({ step }: { step: number }) {
   );
 }
 
+// ── Test Email Modal ──────────────────────────────────────────────────────────
+function TestEmailModal({
+  onClose,
+  onSend,
+}: {
+  onClose: () => void;
+  onSend: (toEmail: string, toName: string) => Promise<void>;
+}) {
+  const [toEmail, setToEmail] = useState("");
+  const [toName, setToName] = useState("Test User");
+  const [sending, setSending] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!toEmail.trim()) return;
+    setSending(true);
+    await onSend(toEmail.trim(), toName.trim() || "Test User");
+    setSending(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
+          Send Test Email
+        </h3>
+        <p className="text-xs text-slate-400 mb-5">
+          Email will be sent with sample contact data (Alex Chen, Acme Corp)
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1.5 block">
+              To email address *
+            </label>
+            <input
+              type="email"
+              required
+              className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-sky-500 transition"
+              placeholder="you@example.com"
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1.5 block">
+              Your name{" "}
+              <span className="normal-case tracking-normal font-normal text-slate-300 dark:text-slate-600">
+                (optional)
+              </span>
+            </label>
+            <input
+              type="text"
+              className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-sky-500 transition"
+              placeholder="Test User"
+              value={toName}
+              onChange={(e) => setToName(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sending || !toEmail.trim()}
+              className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-medium rounded-lg px-4 py-2.5 text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {sending && <SpinnerIcon className="w-4 h-4" />}
+              Send Test
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CampaignBuilder() {
   const navigate = useNavigate();
   const [wizStep, setWizStep] = useState(1);
+
+  // Toast
+  const [toast, setToast] = useState<Toast>(null);
+  const showToast = useCallback((message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   // Step 1
   const [name, setName] = useState("");
@@ -97,6 +208,27 @@ export default function CampaignBuilder() {
     { id: "s4", delay_days: 14, subject: "", body: "", generating: false },
   ]);
   const [previewStepIdx, setPreviewStepIdx] = useState<number | null>(null);
+
+  // Step 3 — per-step tab state (edit | preview)
+  const [stepTab, setStepTab] = useState<"edit" | "preview">("edit");
+  const [activeStepIdx, setActiveStepIdx] = useState<number | null>(null);
+
+  // Step 3 — AI compose (uses new endpoint with sample contact)
+  const [aiComposing, setAiComposing] = useState<number | null>(null);
+
+  // Step 3 — render-preview state
+  const [renderPreviewLoading, setRenderPreviewLoading] = useState(false);
+  const [renderPreviewData, setRenderPreviewData] = useState<{
+    subject: string;
+    body_html: string;
+  } | null>(null);
+
+  // Step 3 — test email modal
+  const [testEmailModalOpen, setTestEmailModalOpen] = useState(false);
+  const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
+
+  // Ref for body textarea to support cursor-position variable insertion
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Step 4
   const [autoStart, setAutoStart] = useState(false);
@@ -131,6 +263,39 @@ export default function CampaignBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wizStep, selectedTags.join(",")]);
 
+  // Reset preview data when switching active step or tab
+  useEffect(() => {
+    setRenderPreviewData(null);
+    setStepTab("edit");
+  }, [activeStepIdx]);
+
+  const fetchRenderPreview = async (idx: number) => {
+    const s = emailSteps[idx];
+    setRenderPreviewLoading(true);
+    setRenderPreviewData(null);
+    try {
+      const res = await fetch("/api/v1/content/render-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: s.subject, body: s.body }),
+      });
+      if (!res.ok) throw new Error("Failed to render preview");
+      const data = await res.json();
+      setRenderPreviewData({ subject: data.subject ?? s.subject, body_html: data.body_html ?? data.body ?? "" });
+    } catch {
+      setRenderPreviewData({ subject: s.subject, body_html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${s.body}</pre>` });
+    } finally {
+      setRenderPreviewLoading(false);
+    }
+  };
+
+  const handleTabChange = (tab: "edit" | "preview", idx: number) => {
+    setStepTab(tab);
+    if (tab === "preview") {
+      fetchRenderPreview(idx);
+    }
+  };
+
   const toggleTag = (t: string) =>
     setSelectedTags((ts) =>
       ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t]
@@ -156,9 +321,58 @@ export default function CampaignBuilder() {
   // Audience summary: tag count + individual picks
   const tagCount = audienceCount ?? 0;
   const individualCount = selectedContactIds.length;
-  // Avoid double-counting contacts that are already in tag audience
-  // We report them separately and let the server deduplicate
   const totalEstimate = tagCount + individualCount;
+
+  // AI Compose with sample contact (new endpoint)
+  const aiComposeStep = async (idx: number) => {
+    setAiComposing(idx);
+    try {
+      const res = await fetch("/api/v1/content/preview/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact: SAMPLE_CONTACT,
+          step_number: idx + 1,
+          campaign_goal: goal,
+        }),
+      });
+      if (!res.ok) throw new Error("AI compose failed");
+      const data = await res.json();
+      setEmailSteps((prev) =>
+        prev.map((x, i) =>
+          i === idx
+            ? { ...x, subject: data.subject ?? x.subject, body: data.body ?? x.body }
+            : x
+        )
+      );
+    } catch {
+      showToast("AI composition failed. Check your API key in Settings.", "error");
+    } finally {
+      setAiComposing(null);
+    }
+  };
+
+  // Insert variable at cursor position in body textarea
+  const insertVariable = (varName: string, idx: number) => {
+    const token = `{{${varName}}}`;
+    const textarea = bodyTextareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const current = emailSteps[idx].body;
+      const newBody = current.slice(0, start) + token + current.slice(end);
+      updateStepField(idx, "body", newBody);
+      // Restore focus and cursor after React re-render
+      setTimeout(() => {
+        textarea.focus();
+        const newPos = start + token.length;
+        textarea.setSelectionRange(newPos, newPos);
+      }, 0);
+    } else {
+      // Fallback: append to end
+      updateStepField(idx, "body", emailSteps[idx].body + token);
+    }
+  };
 
   const generateStepContent = async (idx: number) => {
     setEmailSteps((prev) =>
@@ -220,6 +434,36 @@ export default function CampaignBuilder() {
       prev.map((x, i) => (i === idx ? { ...x, [field]: value } : x))
     );
 
+  const handleSendTestEmail = async (toEmail: string, toName: string) => {
+    if (!savedCampaignId) {
+      showToast("Save campaign first to send test email.", "error");
+      setTestEmailModalOpen(false);
+      return;
+    }
+    if (activeStepIdx === null) return;
+    const step = emailSteps[activeStepIdx];
+    try {
+      const res = await fetch(`/api/v1/campaigns/${savedCampaignId}/test-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step_id: step.id,
+          to_email: toEmail,
+          to_name: toName,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail ?? "Failed to send test email");
+      }
+      showToast(`Test email sent to ${toEmail}!`, "success");
+      setTestEmailModalOpen(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to send test email";
+      showToast(msg, "error");
+    }
+  };
+
   const handleLaunch = async () => {
     if (!name.trim()) {
       setError("Campaign name is required.");
@@ -239,6 +483,7 @@ export default function CampaignBuilder() {
         linkedin_channel: false,
         status: autoStart ? "active" : "draft",
       });
+      setSavedCampaignId(campaign.id);
       for (let i = 0; i < emailSteps.length; i++) {
         const s = emailSteps[i];
         if (!s.subject && !s.body) continue;
@@ -282,6 +527,27 @@ export default function CampaignBuilder() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border transition ${
+            toast.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              : "bg-red-500/10 border-red-500/30 text-red-400"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      {/* Test Email Modal */}
+      {testEmailModalOpen && (
+        <TestEmailModal
+          onClose={() => setTestEmailModalOpen(false)}
+          onSend={handleSendTestEmail}
+        />
+      )}
+
       <div className="mb-6">
         <button
           onClick={() => navigate("/email")}
@@ -657,99 +923,260 @@ export default function CampaignBuilder() {
 
           <div className="grid grid-cols-3 gap-5">
             <div className="col-span-2 space-y-3">
-              {emailSteps.map((s, idx) => (
-                <div
-                  key={s.id}
-                  className={`bg-white dark:bg-surface-700 border rounded-xl transition ${
-                    previewStepIdx === idx
-                      ? "border-sky-500/50"
-                      : "border-slate-200 dark:border-surface-400/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-surface-400/30">
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition ${
-                        previewStepIdx === idx
-                          ? "bg-sky-500 text-white"
-                          : "bg-slate-100 dark:bg-surface-500 text-slate-400"
-                      }`}
-                    >
-                      {idx + 1}
-                    </div>
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className="text-xs text-slate-500">Day</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-14 bg-slate-50 dark:bg-surface-500 border border-slate-200 dark:border-surface-400/50 rounded px-2 py-1 text-xs text-slate-900 dark:text-white text-center outline-none focus:border-sky-500"
-                        value={s.delay_days}
-                        onChange={(e) =>
-                          updateStepField(idx, "delay_days", parseInt(e.target.value) || 0)
-                        }
-                      />
-                    </div>
-                    <button
-                      onClick={() => generateStepContent(idx)}
-                      disabled={s.generating}
-                      className="text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 rounded-lg px-3 py-1.5 hover:bg-violet-500/30 transition disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {s.generating ? (
-                        <>
-                          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                            />
-                          </svg>
-                          Generating...
-                        </>
-                      ) : (
-                        "\u2726 AI Generate"
-                      )}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setPreviewStepIdx(previewStepIdx === idx ? null : idx)
-                      }
-                      className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      {previewStepIdx === idx ? "\u25bc" : "\u25b6"} Preview
-                    </button>
-                    {emailSteps.length > 1 && (
-                      <button
-                        onClick={() => removeStep(idx)}
-                        className="text-xs text-slate-500 hover:text-red-400"
+              {emailSteps.map((s, idx) => {
+                const isActive = activeStepIdx === idx;
+                const isComposing = aiComposing === idx;
+                return (
+                  <div
+                    key={s.id}
+                    className={`bg-white dark:bg-surface-700 border rounded-xl transition ${
+                      previewStepIdx === idx || isActive
+                        ? "border-sky-500/50"
+                        : "border-slate-200 dark:border-surface-400/40"
+                    }`}
+                  >
+                    {/* Step header */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-surface-400/30">
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition ${
+                          previewStepIdx === idx || isActive
+                            ? "bg-sky-500 text-white"
+                            : "bg-slate-100 dark:bg-surface-500 text-slate-400"
+                        }`}
                       >
-                        &#10005;
+                        {idx + 1}
+                      </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-xs text-slate-500">Day</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-14 bg-slate-50 dark:bg-surface-500 border border-slate-200 dark:border-surface-400/50 rounded px-2 py-1 text-xs text-slate-900 dark:text-white text-center outline-none focus:border-sky-500"
+                          value={s.delay_days}
+                          onChange={(e) =>
+                            updateStepField(idx, "delay_days", parseInt(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <button
+                        onClick={() => generateStepContent(idx)}
+                        disabled={s.generating}
+                        className="text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 rounded-lg px-3 py-1.5 hover:bg-violet-500/30 transition disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {s.generating ? (
+                          <>
+                            <SpinnerIcon />
+                            Generating...
+                          </>
+                        ) : (
+                          "\u2726 AI Generate"
+                        )}
                       </button>
+                      <button
+                        onClick={() => {
+                          const next = isActive ? null : idx;
+                          setActiveStepIdx(next);
+                          setPreviewStepIdx(next);
+                        }}
+                        className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      >
+                        {isActive ? "\u25bc" : "\u25b6"} Edit
+                      </button>
+                      <button
+                        onClick={() =>
+                          setPreviewStepIdx(previewStepIdx === idx ? null : idx)
+                        }
+                        className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      >
+                        {previewStepIdx === idx ? "\u25bc" : "\u25b6"} Preview
+                      </button>
+                      {emailSteps.length > 1 && (
+                        <button
+                          onClick={() => removeStep(idx)}
+                          className="text-xs text-slate-500 hover:text-red-400"
+                        >
+                          &#10005;
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Step editor — expanded when active */}
+                    {isActive && (
+                      <div className="p-4 space-y-3">
+                        {/* Edit | Preview tab toggle */}
+                        <div className="flex items-center gap-1 border-b border-slate-200 dark:border-surface-400/30 pb-3">
+                          <button
+                            onClick={() => handleTabChange("edit", idx)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                              stepTab === "edit"
+                                ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                                : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
+                          >
+                            &#9998; Edit
+                          </button>
+                          <button
+                            onClick={() => handleTabChange("preview", idx)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                              stepTab === "preview"
+                                ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                                : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
+                          >
+                            &#128065; Preview
+                          </button>
+                        </div>
+
+                        {stepTab === "edit" && (
+                          <>
+                            {/* AI Compose button — right-aligned above Subject */}
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => aiComposeStep(idx)}
+                                disabled={isComposing}
+                                className="bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50"
+                              >
+                                {isComposing ? (
+                                  <>
+                                    <SpinnerIcon />
+                                    Composing...
+                                  </>
+                                ) : (
+                                  "\u2726 Compose with AI"
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Subject */}
+                            <input
+                              className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition"
+                              placeholder={`Step ${idx + 1} subject line...`}
+                              value={s.subject}
+                              onChange={(e) => updateStepField(idx, "subject", e.target.value)}
+                            />
+
+                            {/* Body */}
+                            <textarea
+                              ref={activeStepIdx === idx ? bodyTextareaRef : undefined}
+                              rows={6}
+                              className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition resize-none"
+                              placeholder={`Email body for step ${idx + 1}... Use {{first_name}}, {{company}}, {{title}}.`}
+                              value={s.body}
+                              onChange={(e) => updateStepField(idx, "body", e.target.value)}
+                            />
+
+                            {/* Variable insertion toolbar */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs text-slate-400 dark:text-slate-500 mr-0.5">
+                                Insert variable:
+                              </span>
+                              {VARIABLES.map((v) => (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onClick={() => insertVariable(v, idx)}
+                                  className="bg-slate-100 dark:bg-surface-600 text-sky-500 dark:text-sky-400 text-xs px-2 py-0.5 rounded cursor-pointer hover:bg-sky-50 dark:hover:bg-surface-500 border border-slate-200 dark:border-surface-400/30 transition"
+                                >
+                                  {`{{${v}}}`}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+
+                        {stepTab === "preview" && (
+                          <div className="space-y-3">
+                            {/* Sample data note */}
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                              Previewing with sample data:{" "}
+                              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                Alex Chen · Acme Corp · Head of Operations
+                              </span>
+                            </p>
+
+                            {renderPreviewLoading ? (
+                              <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-sm">
+                                <SpinnerIcon className="w-4 h-4" />
+                                Rendering preview…
+                              </div>
+                            ) : renderPreviewData ? (
+                              <>
+                                {/* Subject banner */}
+                                <div className="bg-slate-100 dark:bg-surface-600 rounded-lg px-4 py-2.5">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                    Subject:{" "}
+                                  </span>
+                                  <span className="text-sm text-slate-900 dark:text-white">
+                                    {renderPreviewData.subject || "(no subject)"}
+                                  </span>
+                                </div>
+
+                                {/* Body iframe */}
+                                <iframe
+                                  srcDoc={renderPreviewData.body_html}
+                                  style={{ width: "100%", minHeight: "400px", border: "none", borderRadius: "8px" }}
+                                  title={`Preview step ${idx + 1}`}
+                                  sandbox="allow-same-origin"
+                                />
+
+                                {/* Action buttons */}
+                                <div className="flex items-center gap-3 pt-1">
+                                  <button
+                                    onClick={() => fetchRenderPreview(idx)}
+                                    className="text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 transition"
+                                  >
+                                    &#8635; Refresh
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveStepIdx(idx);
+                                      setTestEmailModalOpen(true);
+                                    }}
+                                    className="text-xs bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition"
+                                  >
+                                    &#128231; Send Test Email
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-xs text-slate-500 text-center py-8">
+                                No preview available.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Collapsed quick-view (when not active) */}
+                    {!isActive && (
+                      <div className="p-4 space-y-3">
+                        <input
+                          className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition"
+                          placeholder={`Step ${idx + 1} subject line...`}
+                          value={s.subject}
+                          onChange={(e) => updateStepField(idx, "subject", e.target.value)}
+                          onClick={() => {
+                            setActiveStepIdx(idx);
+                            setPreviewStepIdx(idx);
+                          }}
+                        />
+                        <textarea
+                          rows={4}
+                          className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition resize-none"
+                          placeholder={`Email body for step ${idx + 1}... Use {{first_name}}, {{company}}, {{title}}.`}
+                          value={s.body}
+                          onChange={(e) => updateStepField(idx, "body", e.target.value)}
+                          onClick={() => {
+                            setActiveStepIdx(idx);
+                            setPreviewStepIdx(idx);
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
-                  <div className="p-4 space-y-3">
-                    <input
-                      className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition"
-                      placeholder={`Step ${idx + 1} subject line...`}
-                      value={s.subject}
-                      onChange={(e) => updateStepField(idx, "subject", e.target.value)}
-                    />
-                    <textarea
-                      rows={4}
-                      className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none focus:border-sky-500 transition resize-none"
-                      placeholder={`Email body for step ${idx + 1}... Use {{first_name}}, {{company}}, {{title}}.`}
-                      value={s.body}
-                      onChange={(e) => updateStepField(idx, "body", e.target.value)}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Preview panel */}
@@ -919,23 +1346,7 @@ export default function CampaignBuilder() {
                 disabled={launching}
                 className="bg-sky-500 hover:bg-sky-400 text-white font-medium rounded-lg px-6 py-2.5 text-sm transition disabled:opacity-50 flex items-center gap-2"
               >
-                {launching && (
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                )}
+                {launching && <SpinnerIcon className="w-4 h-4" />}
                 Launch Campaign
               </button>
             </div>
