@@ -1,0 +1,39 @@
+# Environment
+.env
+*.env
+
+# LinkedIn session (contains auth cookies)
+linkedin_session.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Node / React
+node_modules/
+frontend/dist/
+frontend/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright browser binaries
+.playwright/

@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base */
+.dark { color-scheme: dark; }
+:root { color-scheme: light; }
+html { scroll-behavior: smooth; }
+
+body {
+  @apply bg-surface-900 text-white;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Light mode base */
+html:not(.dark) body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-surface-400 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-surface-300; }
+
+/* Card glass effect */
+.card {
+  @apply bg-surface-700 border border-surface-400 rounded-xl;
+}
+html:not(.dark) .card {
+  @apply bg-white border-slate-200;
+}
+
+/* Input base style */
+.input {
+  @apply w-full bg-surface-600 border border-surface-400 rounded-lg px-3 py-2 text-sm
+         text-white placeholder-surface-100 outline-none
+         focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition;
+}
+html:not(.dark) .input {
+  @apply bg-white border-slate-200 text-slate-900 placeholder-slate-400;
+}
+
+/* Button primary */
+.btn-primary {
+  @apply bg-sky-500 hover:bg-sky-400 text-white font-medium rounded-lg px-4 py-2 text-sm
+         transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Button secondary */
+.btn-secondary {
+  @apply bg-surface-600 hover:bg-surface-500 border border-surface-400 text-white
+         font-medium rounded-lg px-4 py-2 text-sm transition;
+}
+html:not(.dark) .btn-secondary {
+  @apply bg-white hover:bg-slate-50 border-slate-200 text-slate-700;
+}
+
+/* Gradient drone card */
+.card-drone {
+  background: linear-gradient(135deg, #7C3AED 0%, #0EA5E9 100%);
+  @apply rounded-xl border-0;
+}
+
+/* Stat value */
+.stat-value {
+  @apply text-3xl font-bold font-mono text-white tabular-nums;
+}
+
+/* Label small */
+.label {
+  @apply text-xs uppercase tracking-wider text-surface-100 font-medium;
+}
+html:not(.dark) .label {
+  @apply text-slate-500;
+}
+
+/* Glow effects */
+.glow-blue { box-shadow: 0 0 24px rgba(14, 165, 233, 0.2); }
+.glow-purple { box-shadow: 0 0 24px rgba(124, 58, 237, 0.25); }
+.glow-green { box-shadow: 0 0 24px rgba(16, 185, 129, 0.2); }
+
+/* Status badge */
+.badge {
+  @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+.badge-active  { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
+.badge-draft   { @apply bg-surface-500 text-surface-50 border border-surface-400; }
+.badge-paused  { @apply bg-amber-500/20 text-amber-400 border border-amber-500/30; }
+.badge-done    { @apply bg-sky-500/20 text-sky-400 border border-sky-500/30; }
+
+/* Tag chip */
+.tag-chip {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium
+         bg-sky-500/20 text-sky-300 border border-sky-500/30;
+}
+
+/* Section heading */
+.section-title {
+  @apply text-xs uppercase tracking-widest text-surface-100 font-semibold mb-2;
+}
+html:not(.dark) .section-title {
+  @apply text-slate-400;
+}
+
+/* Table */
+.table-row {
+  @apply border-b border-surface-400 hover:bg-surface-600 transition;
+}
+html:not(.dark) .table-row {
+  @apply border-slate-100 hover:bg-slate-50;
+}
+
+/* Animated dot */
+@keyframes ping-slow {
+  75%, 100% { transform: scale(1.5); opacity: 0; }
+}
+.dot-active {
+  @apply relative flex h-2 w-2;
+}
+.dot-active::before {
+  content: '';
+  @apply absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75;
+  animation: ping-slow 1.5s cubic-bezier(0,0,0.2,1) infinite;
+}
+.dot-active::after {
+  content: '';
+  @apply relative inline-flex h-2 w-2 rounded-full bg-emerald-500;
+}
