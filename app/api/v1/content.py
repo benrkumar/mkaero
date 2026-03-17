@@ -5,7 +5,7 @@ from app.api.v1.deps import get_db
 from app.models.contact import Contact
 from app.models.sequence_step import SequenceStep
 from app.schemas.content import ContentPreviewRequest, EmailContentOut, LinkedInContentOut, RegenerateRequest
-from app.services.content_service import content_service
+from app.services.content_service import ContentService
 
 router = APIRouter()
 
@@ -16,6 +16,7 @@ def preview_email(body: ContentPreviewRequest, db: Session = Depends(get_db)):
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     try:
+        content_service = ContentService(db)
         result = content_service.generate_email(contact, body.step_number, body.campaign_goal)
         return EmailContentOut(**result)
     except Exception as exc:
@@ -28,6 +29,7 @@ def preview_linkedin(body: ContentPreviewRequest, db: Session = Depends(get_db))
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     try:
+        content_service = ContentService(db)
         msg = content_service.generate_linkedin_message(
             contact,
             "connection_request" if body.step_number == 1 else "follow_up",
@@ -46,6 +48,7 @@ def regenerate_step(body: RegenerateRequest, db: Session = Depends(get_db)):
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     try:
+        content_service = ContentService(db)
         if step.channel == "email":
             result = content_service.generate_email(contact, step.step_order)
             step.subject_template = result["subject"]

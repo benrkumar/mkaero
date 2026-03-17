@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_db
-from app.services.apollo_service import apollo_service
+from app.services.apollo_service import ApolloService
 
 router = APIRouter()
 
@@ -24,6 +24,7 @@ class ApolloFetchResult(BaseModel):
 @router.post("/fetch", response_model=ApolloFetchResult)
 def fetch_leads(body: ApolloFetchRequest, db: Session = Depends(get_db)):
     try:
+        apollo_service = ApolloService(db)
         contacts = apollo_service.fetch_leads(
             db=db,
             job_titles=body.job_titles,

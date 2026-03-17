@@ -21,8 +21,10 @@ import time
 from typing import Optional
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services.settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +32,11 @@ PHANTOMBUSTER_API = "https://api.phantombuster.com/api/v2"
 
 
 class PhantombusterService:
-    def __init__(self):
-        self.api_key = settings.phantombuster_api_key
-        self.network_booster_id = settings.phantombuster_network_booster_id
-        self.message_sender_id = settings.phantombuster_message_sender_id
-        self.session_cookie = settings.linkedin_session_cookie
+    def __init__(self, db: Session):
+        self.api_key = get_setting(db, "phantombuster_api_key")
+        self.network_booster_id = get_setting(db, "phantombuster_network_booster_id")
+        self.message_sender_id = get_setting(db, "phantombuster_message_sender_id")
+        self.session_cookie = get_setting(db, "linkedin_session_cookie")
         self.headers = {"X-Phantombuster-Key": self.api_key}
 
     def _is_configured(self) -> bool:
@@ -257,4 +259,3 @@ class PhantombusterService:
             return {}
 
 
-phantombuster_service = PhantombusterService()

@@ -9,8 +9,10 @@ import logging
 import time
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services.settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +20,10 @@ MAILGUN_API_BASE = "https://api.mailgunapp.com/v3"  # EU: api.eu.mailgun.net
 
 
 class EmailService:
-    def __init__(self):
-        self.api_key = settings.mailgun_api_key
-        self.domain = settings.mailgun_domain
-        self.from_address = f"{settings.mailgun_from_name} <{settings.mailgun_from}>"
+    def __init__(self, db: Session):
+        self.api_key = get_setting(db, "mailgun_api_key")
+        self.domain = get_setting(db, "mailgun_domain")
+        self.from_address = f"{get_setting(db, 'mailgun_from_name')} <{get_setting(db, 'mailgun_from')}>"
         self.base_url = f"https://api.mailgunapp.com/v3/{self.domain}"
 
     def send(
@@ -96,4 +98,3 @@ class EmailService:
             return False
 
 
-email_service = EmailService()

@@ -12,8 +12,10 @@ import json
 import logging
 
 import anthropic
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.services.settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +57,8 @@ Always return ONLY valid JSON. No markdown, no preamble.
 
 
 class CampaignWizardService:
-    def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    def __init__(self, db: Session):
+        self.client = anthropic.Anthropic(api_key=get_setting(db, "anthropic_api_key"))
 
     def generate_plan(self, description: str, max_leads: int = 100) -> dict:
         """
@@ -147,4 +149,3 @@ Generate a complete outreach campaign plan. Return this exact JSON structure:
         return message.content[0].text.strip()
 
 
-campaign_wizard_service = CampaignWizardService()

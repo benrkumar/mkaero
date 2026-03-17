@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.contact import Contact, ContactStatus
+from app.services.settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ PAGE_SIZE = 25
 
 
 class ApolloService:
-    def __init__(self):
-        self.api_key = settings.apollo_api_key
+    def __init__(self, db: Session):
+        self.api_key = get_setting(db, "apollo_api_key")
 
     def fetch_leads(
         self,
@@ -109,4 +110,3 @@ class ApolloService:
         return contact
 
 
-apollo_service = ApolloService()

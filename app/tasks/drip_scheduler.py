@@ -36,7 +36,8 @@ def _render(template: str, contact: Contact) -> str:
 def _send_email_step(db: Session, lead: CampaignLead, step: SequenceStep) -> bool:
     """Send an email for the given step. Returns True on success."""
     try:
-        from app.services.email_service import email_service
+        from app.services.email_service import EmailService
+        email_service = EmailService(db)
         contact = lead.contact
         subject = _render(step.subject_template or "", contact)
         body = _render(step.body_template or "", contact)
@@ -74,7 +75,8 @@ def _batch_linkedin_step(
 ) -> None:
     """Batch send LinkedIn connection requests or messages via Phantombuster."""
     try:
-        from app.services.phantombuster_service import phantombuster_service
+        from app.services.phantombuster_service import PhantombusterService
+        phantombuster_service = PhantombusterService(db)
         profile_urls = []
         lead_map = {}
         for lead in leads_for_step:

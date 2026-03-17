@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Database — SQLite, no install needed
-    database_url: str = "sqlite:///./mk_outreach.db"
+    database_url: str = "sqlite:////app/data/mk_outreach.db"
 
     # Apollo.io
     apollo_api_key: str = ""

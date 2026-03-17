@@ -9,9 +9,11 @@ import logging
 from typing import Literal
 
 import anthropic
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.contact import Contact
+from app.services.settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +48,8 @@ STEP_CONTEXT = {
 
 
 class ContentService:
-    def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    def __init__(self, db: Session):
+        self.client = anthropic.Anthropic(api_key=get_setting(db, "anthropic_api_key"))
 
     def generate_email(
         self,
@@ -159,4 +161,3 @@ Return ONLY the message text. No JSON. No preamble.
         )
 
 
-content_service = ContentService()

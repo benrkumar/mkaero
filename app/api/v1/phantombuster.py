@@ -6,10 +6,12 @@ Indo Aerial Systems platform.
 """
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.services.phantombuster_service import phantombuster_service
+from app.api.v1.deps import get_db
+from app.services.phantombuster_service import PhantombusterService
 
 router = APIRouter(prefix="/phantombuster", tags=["Phantombuster"])
 
@@ -36,43 +38,43 @@ class LaunchRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/agents")
-def list_agents() -> list:
+def list_agents(db: Session = Depends(get_db)) -> list:
     """Return all Phantombuster agents."""
-    result = phantombuster_service.list_agents()
+    result = PhantombusterService(db).list_agents()
     # list_agents returns [] on error, not a not_configured dict — passthrough
     return result
 
 
 @router.get("/agents/{agent_id}")
-def get_agent(agent_id: str) -> dict:
+def get_agent(agent_id: str, db: Session = Depends(get_db)) -> dict:
     """Return details for a single Phantombuster agent."""
-    result = phantombuster_service.get_agent(agent_id)
+    result = PhantombusterService(db).get_agent(agent_id)
     return _check_configured(result)
 
 
 @router.post("/agents/{agent_id}/launch")
-def launch_agent(agent_id: str, body: LaunchRequest = LaunchRequest()) -> dict:
+def launch_agent(agent_id: str, body: LaunchRequest = LaunchRequest(), db: Session = Depends(get_db)) -> dict:
     """
     Launch a Phantombuster agent.
 
     Optionally pass ``{"argument": {...}}`` in the request body to override
     the agent's default arguments.
     """
-    result = phantombuster_service.launch_agent(agent_id, argument=body.argument)
+    result = PhantombusterService(db).launch_agent(agent_id, argument=body.argument)
     return _check_configured(result)
 
 
 @router.post("/agents/{agent_id}/abort")
-def abort_agent(agent_id: str) -> dict:
+def abort_agent(agent_id: str, db: Session = Depends(get_db)) -> dict:
     """Abort a currently-running Phantombuster agent."""
-    result = phantombuster_service.abort_agent(agent_id)
+    result = PhantombusterService(db).abort_agent(agent_id)
     return _check_configured(result)
 
 
 @router.get("/containers/{container_id}")
-def get_container_output(container_id: str) -> dict:
+def get_container_output(container_id: str, db: Session = Depends(get_db)) -> dict:
     """Return the output/status of a Phantombuster container."""
-    result = phantombuster_service.get_container_output(container_id)
+    result = PhantombusterService(db).get_container_output(container_id)
     return _check_configured(result)
 
 

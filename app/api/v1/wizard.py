@@ -14,8 +14,8 @@ from app.models.campaign import Campaign, CampaignStatus
 from app.models.campaign_lead import CampaignLead, CampaignLeadStatus
 from app.models.contact import ContactStatus
 from app.models.sequence_step import SequenceStep, StepChannel
-from app.services.campaign_wizard_service import campaign_wizard_service
-from app.services.apollo_service import apollo_service
+from app.services.campaign_wizard_service import CampaignWizardService
+from app.services.apollo_service import ApolloService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,7 +59,7 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Description cannot be empty")
 
     try:
-        plan = campaign_wizard_service.generate_plan(body.description, body.max_leads)
+        plan = CampaignWizardService(db).generate_plan(body.description, body.max_leads)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI generation failed: {exc}")
 
@@ -91,7 +91,7 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
         )
         db.add(step)
         try:
-            summary = campaign_wizard_service.summarize_email(email_step["subject"], email_step["body"])
+            summary = CampaignWizardService(db).summarize_email(email_step["subject"], email_step["body"])
         except Exception:
             summary = email_step["subject"]
         steps_preview.append(WizardStepPreview(
@@ -110,7 +110,7 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
 
     if body.auto_fetch_leads and filters.get("job_titles"):
         try:
-            contacts = apollo_service.fetch_leads(
+            contacts = ApolloService(db).fetch_leads(
                 db=db,
                 job_titles=filters.get("job_titles", []),
                 industries=filters.get("industries", []),
@@ -174,7 +174,7 @@ class PhantombusterLaunchRequest(BaseModel):
 
 @router.post("/linkedin/launch")
 def launch_linkedin_phantom(body: PhantombusterLaunchRequest, db: Session = Depends(get_db)):
-    from app.services.phantombuster_service import phantombuster_service
+    from app.services.phantombuster_service import PhantombusterService
     campaign = db.query(Campaign).filter(Campaign.id == body.campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -195,8 +195,9 @@ def launch_linkedin_phantom(body: PhantombusterLaunchRequest, db: Session = Depe
         SequenceStep.campaign_id == body.campaign_id
     ).order_by(SequenceStep.step_order).first()
     message = first_step.linkedin_message_template if first_step else ""
+    pb_service = PhantombusterService(db)
     if body.step_type == "connection":
-        result = phantombuster_service.send_connection_requests(profile_urls, message, min(body.batch_size, 20))
+        result = pb_service.send_connection_requests(profile_urls, message, min(body.batch_size, 20))
     else:
-        result = phantombuster_service.send_messages(profile_urls, message)
+        result = pb_service.send_messages(profile_urls, message)
     return {"launched": len(profile_urls), "result": result}

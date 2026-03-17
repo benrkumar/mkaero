@@ -24,6 +24,8 @@ COPY alembic.ini ./
 # Copy built frontend into backend static dir
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
+RUN mkdir -p /app/data
+
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080
