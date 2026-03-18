@@ -87,9 +87,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           border-r border-slate-200 dark:border-surface-400/20 overflow-y-auto
           transition-transform duration-200
           ${open ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0 md:shrink-0 md:h-[100dvh]
+          md:static md:translate-x-0 md:shrink-0
         `}
-        style={{ willChange: "transform" }}
+        style={{ willChange: "transform", height: "var(--app-height, 100dvh)" }}
       >
         <div className="p-4 border-b border-slate-200 dark:border-surface-400/20">
           <div className="flex items-center gap-3">
@@ -168,7 +168,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 function AppInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="flex flex-1 h-[100dvh] overflow-hidden bg-slate-50 dark:bg-surface-900">
+    <div className="flex flex-1 overflow-hidden bg-slate-50 dark:bg-surface-900" style={{ height: "var(--app-height, 100dvh)" }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
