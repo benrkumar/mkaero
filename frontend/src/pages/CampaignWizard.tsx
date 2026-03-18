@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateCampaign, updateSequenceStep, getSettings } from "../api/client";
+import { generateCampaign, updateSequenceStep, getSettings, fetchLeadsForCampaign } from "../api/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +130,13 @@ export default function CampaignWizard() {
   const [editedLinkedInNote, setEditedLinkedInNote] = useState("");
   const [editedLinkedInFollowup, setEditedLinkedInFollowup] = useState("");
 
+  // --- Fetch leads state ---
+  const [fetchDomain, setFetchDomain] = useState("");
+  const [fetchMax, setFetchMax] = useState(50);
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [fetchResult, setFetchResult] = useState<{ fetched: number; enrolled: number; domain: string } | null>(null);
+  const [fetchError, setFetchError] = useState("");
+
   // --- Save state ---
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -180,14 +187,15 @@ export default function CampaignWizard() {
     setResult(null);
     setSaveSuccess(false);
     setSaveError("");
+    setFetchResult(null);
+    setFetchError("");
+    setFetchDomain("");
     try {
       const data = await generateCampaign({
         description,
         max_leads: maxLeads,
         email_channel: emailChannel,
         linkedin_channel: linkedinChannel,
-        auto_fetch_leads: true,
-        auto_enroll: true,
         auto_start: autoStart,
       });
       setResult(data);
@@ -255,6 +263,25 @@ export default function CampaignWizard() {
     setEditedLinkedInFollowup("");
     setSaveSuccess(false);
     setSaveError("");
+    setFetchResult(null);
+    setFetchError("");
+    setFetchDomain("");
+  };
+
+  const handleFetchLeads = async () => {
+    if (!result || !fetchDomain.trim()) return;
+    setFetchLoading(true);
+    setFetchError("");
+    setFetchResult(null);
+    try {
+      const res = await fetchLeadsForCampaign(result.campaign_id, fetchDomain.trim(), fetchMax);
+      setFetchResult({ fetched: res.fetched, enrolled: res.enrolled, domain: res.domain });
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setFetchError(err.response?.data?.detail ?? "Lead fetch failed. Check your Hunter.io API key in Settings.");
+    } finally {
+      setFetchLoading(false);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -461,85 +488,82 @@ export default function CampaignWizard() {
             </div>
           </div>
 
-          {/* ── Phase 6A: Descriptive stat cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {/* Leads Fetched */}
-            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-sky-500/15 flex items-center justify-center text-sky-500 dark:text-sky-400">
-                <IconTarget className="w-5 h-5" />
-              </div>
-              <p className="text-2xl font-bold font-mono text-sky-600 dark:text-sky-400">
-                {result.leads_fetched}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 leading-tight">
-                Leads Fetched
-              </p>
-            </div>
-
-            {/* Leads Enrolled */}
-            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </div>
-              <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                {result.leads_enrolled}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 leading-tight">
-                Leads Enrolled
-              </p>
-            </div>
-
-            {/* Email Steps */}
-            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-2">
+          {/* ── Campaign stat strip ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-1.5">
               <div className="w-9 h-9 rounded-full bg-violet-500/15 flex items-center justify-center text-violet-500 dark:text-violet-400">
                 <IconEnvelope className="w-5 h-5" />
               </div>
-              <p className="text-lg font-bold font-mono text-violet-600 dark:text-violet-400 leading-tight">
-                {result.steps_preview.length}-step
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 leading-tight">
-                Email Sequence
-              </p>
+              <p className="text-lg font-bold font-mono text-violet-600 dark:text-violet-400">{result.steps_preview.length}-step</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">Email Sequence</p>
             </div>
-
-            {/* Status badge card */}
-            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-2">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                  result.status === "active"
-                    ? "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400"
-                    : "bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  {result.status === "active" ? (
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  ) : (
-                    <circle cx="12" cy="12" r="10" />
-                  )}
-                  {result.status === "active" && (
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  )}
-                </svg>
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-1.5">
+              <div className="w-9 h-9 rounded-full bg-sky-500/15 flex items-center justify-center text-sky-500 dark:text-sky-400">
+                <IconTarget className="w-5 h-5" />
               </div>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  result.status === "active"
-                    ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
-                    : "bg-slate-100 dark:bg-slate-600/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-500/40"
-                }`}
-              >
+              <p className="text-2xl font-bold font-mono text-sky-600 dark:text-sky-400">{fetchResult ? fetchResult.enrolled : 0}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">Leads Enrolled</p>
+            </div>
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 flex flex-col items-center text-center gap-1.5">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${result.status === "active" ? "bg-emerald-500/15 text-emerald-500" : "bg-slate-100 dark:bg-slate-600 text-slate-500"}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><circle cx="12" cy="12" r="10"/></svg>
+              </div>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${result.status === "active" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-slate-100 dark:bg-slate-600/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-500/40"}`}>
                 {result.status}
               </span>
-              <p className="text-xs text-slate-500 dark:text-slate-500 leading-tight">
-                Status
-              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">Status</p>
             </div>
+          </div>
+
+          {/* ── Fetch Leads from Hunter.io ── */}
+          <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Fetch Leads via Hunter.io</h3>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Enter a company domain to find verified email contacts and enroll them in this campaign.
+            </p>
+
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                className="flex-1 bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-orange-500 transition"
+                placeholder="e.g. dronecompany.com"
+                value={fetchDomain}
+                onChange={(e) => setFetchDomain(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleFetchLeads(); }}
+              />
+              <button
+                onClick={handleFetchLeads}
+                disabled={fetchLoading || !fetchDomain.trim()}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 shrink-0"
+              >
+                {fetchLoading ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                )}
+                {fetchLoading ? "Fetching..." : "Fetch & Enroll"}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Max contacts:</label>
+              <input type="range" min={5} max={100} step={5} value={fetchMax}
+                onChange={(e) => setFetchMax(Number(e.target.value))} className="flex-1 accent-orange-500" />
+              <span className="text-xs font-mono text-orange-400 w-6 text-right">{fetchMax}</span>
+            </div>
+
+            {fetchError && (
+              <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-red-400">{fetchError}</div>
+            )}
+            {fetchResult && (
+              <div className="mt-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-emerald-400 flex items-center gap-2">
+                <IconCheck className="w-4 h-4 shrink-0" />
+                Found {fetchResult.fetched} contacts at {fetchResult.domain} — {fetchResult.enrolled} enrolled in campaign.
+              </div>
+            )}
           </div>
 
           {/* ── Apollo filters ── */}

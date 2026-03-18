@@ -156,6 +156,73 @@ def unenroll_lead(campaign_id: str, lead_id: str, db: Session = Depends(get_db))
     db.commit()
 
 
+class HunterFetchRequest(BaseModel):
+    domain: str
+    max_results: int = 50
+
+
+@router.post("/{campaign_id}/fetch-leads")
+def fetch_leads_from_hunter(campaign_id: str, body: HunterFetchRequest, db: Session = Depends(get_db)):
+    """
+    Fetch contacts from a Hunter.io domain search and enroll them in the campaign.
+    """
+    from app.services.hunter_service import HunterService
+
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if not campaign.steps:
+        raise HTTPException(status_code=400, detail="Add sequence steps before fetching leads")
+
+    domain = body.domain.strip().lower()
+    if not domain:
+        raise HTTPException(status_code=400, detail="Domain cannot be empty")
+
+    try:
+        hunter = HunterService(db)
+        contacts = hunter.search_domain(
+            db=db,
+            domain=domain,
+            max_results=body.max_results,
+            import_tag=f"wizard-{campaign_id[:8]}",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Hunter.io error: {exc}")
+
+    first_step = min(campaign.steps, key=lambda s: s.step_order)
+    enrolled = 0
+    skipped = 0
+
+    for contact in contacts:
+        existing = db.query(CampaignLead).filter(
+            CampaignLead.campaign_id == campaign_id,
+            CampaignLead.contact_id == contact.id,
+        ).first()
+        if existing:
+            skipped += 1
+            continue
+        db.add(CampaignLead(
+            campaign_id=campaign_id,
+            contact_id=contact.id,
+            current_step=first_step.step_order,
+            status=CampaignLeadStatus.active,
+            next_send_at=datetime.utcnow(),
+        ))
+        contact.status = ContactStatus.in_campaign
+        enrolled += 1
+
+    db.commit()
+    return {
+        "fetched": len(contacts),
+        "enrolled": enrolled,
+        "skipped": skipped,
+        "domain": domain,
+        "message": f"Fetched {len(contacts)} contacts from {domain}, enrolled {enrolled}.",
+    }
+
+
 class TestEmailRequest(BaseModel):
     step_id: str
     to_email: str

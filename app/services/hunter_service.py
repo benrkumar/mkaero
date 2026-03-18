@@ -1,11 +1,8 @@
 """
 Hunter.io lead sourcing service.
 
-Two modes:
-  1. Company Discover — filter companies by industry, country, size, type, keywords
-     → returns a list of companies with their domains
-  2. Domain Search — find all emails at a given domain
-     → upserts Contacts into the DB
+Capability: Domain Search — find all verified email addresses at a given domain
+and upsert them as Contact records in the DB.
 
 API docs: https://hunter.io/api-documentation/v2
 """
@@ -26,61 +23,6 @@ HUNTER_BASE = "https://api.hunter.io/v2"
 class HunterService:
     def __init__(self, db: Session):
         self.api_key = get_setting(db, "hunter_api_key")
-
-    # ── Company Discover ──────────────────────────────────────────────────────
-
-    def discover_companies(
-        self,
-        industry: str | None = None,
-        country: str | None = None,
-        size_range: str | None = None,
-        company_type: str | None = None,
-        keyword: str | None = None,
-        max_companies: int = 20,
-    ) -> list[dict]:
-        """
-        Search for companies using Hunter's Companies API.
-        Returns a list of company dicts: {name, domain, country, size, industry, type}.
-        Does NOT touch the DB — caller decides whether to import contacts.
-        """
-        if not self.api_key:
-            raise ValueError("Hunter.io API key is not configured. Add it in Settings.")
-
-        params: dict = {"api_key": self.api_key, "limit": min(max_companies, 100)}
-        if industry:
-            params["industry"] = industry
-        if country:
-            params["country"] = country
-        if size_range:
-            params["size_range"] = size_range
-        if company_type:
-            params["type"] = company_type
-        if keyword:
-            params["keyword"] = keyword
-
-        with httpx.Client(timeout=30) as client:
-            resp = client.get(f"{HUNTER_BASE}/companies", params=params)
-            resp.raise_for_status()
-            data = resp.json()
-
-        raw_companies: list[dict] = data.get("data", {}).get("companies", [])
-        companies = []
-        for c in raw_companies:
-            domain = c.get("domain") or ""
-            if not domain:
-                continue
-            companies.append({
-                "name": c.get("company_name") or c.get("name") or domain,
-                "domain": domain,
-                "country": c.get("country") or "",
-                "size": c.get("size") or "",
-                "industry": c.get("industry") or "",
-                "type": c.get("type") or "",
-                "description": c.get("description") or "",
-            })
-
-        logger.info("Hunter discover returned %d companies", len(companies))
-        return companies
 
     # ── Domain Search (import contacts) ────────────────────────────────────────
 

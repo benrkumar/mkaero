@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchApolloLeads, hunterDiscover, fetchHunterLeads } from "../api/client";
+import { fetchApolloLeads, fetchHunterLeads } from "../api/client";
 
 // ── Apollo constants ───────────────────────────────────────────────────────
 
@@ -16,32 +16,7 @@ const COMPANY_SIZE_OPTIONS = [
   { label: "5000+", value: "5001,100000" },
 ];
 
-// ── Hunter constants ───────────────────────────────────────────────────────
-
-const HUNTER_INDUSTRIES = [
-  "Information Technology", "Software", "SaaS", "Manufacturing",
-  "Aerospace & Defense", "Aviation & Aerospace", "Agriculture",
-  "Automotive", "Construction", "Education", "Energy", "Finance",
-  "Government", "Healthcare", "Logistics", "Media", "Telecommunications",
-];
-const HUNTER_SIZES = [
-  { label: "1–10", value: "1,10" }, { label: "11–50", value: "11,50" },
-  { label: "51–200", value: "51,200" }, { label: "201–500", value: "201,500" },
-  { label: "501–1000", value: "501,1000" }, { label: "1001–5000", value: "1001,5000" },
-  { label: "5000+", value: "5001,100000" },
-];
-const HUNTER_TYPES = [
-  { label: "Private", value: "private" }, { label: "Public", value: "public" },
-  { label: "Non-Profit", value: "non_profit" }, { label: "Government", value: "government" },
-  { label: "Educational", value: "educational" },
-];
-const HUNTER_COUNTRIES = [
-  { label: "India", value: "IN" }, { label: "United States", value: "US" },
-  { label: "United Kingdom", value: "GB" }, { label: "Germany", value: "DE" },
-  { label: "France", value: "FR" }, { label: "Singapore", value: "SG" },
-  { label: "UAE", value: "AE" }, { label: "Australia", value: "AU" },
-  { label: "Canada", value: "CA" }, { label: "Israel", value: "IL" },
-];
+// (Hunter.io works via domain search — no company-discovery filters needed)
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,9 +26,9 @@ type LeadResult = {
   location: string; email: string; linkedin_url: string;
 };
 
-type HunterCompany = {
-  name: string; domain: string; country: string;
-  size: string; industry: string; type: string; description: string;
+type HunterContact = {
+  id: string; first_name: string; last_name: string;
+  email: string; company: string; title: string;
 };
 
 // ── Shared sub-components ─────────────────────────────────────────────────
@@ -130,16 +105,11 @@ export default function LeadFinder() {
   const [apolloResults, setApolloResults] = useState<LeadResult[]>([]);
 
   // Hunter state
-  const [hunterIndustry, setHunterIndustry] = useState("");
-  const [hunterCountry, setHunterCountry] = useState("IN");
-  const [hunterSize, setHunterSize] = useState("");
-  const [hunterType, setHunterType] = useState("");
-  const [hunterKeyword, setHunterKeyword] = useState("");
-  const [hunterMaxCompanies, setHunterMaxCompanies] = useState(10);
-  const [hunterCompanies, setHunterCompanies] = useState<HunterCompany[]>([]);
+  const [hunterDomains, setHunterDomains] = useState<string[]>([]);
+  const [hunterDomainInput, setHunterDomainInput] = useState("");
+  const [hunterMaxResults, setHunterMaxResults] = useState(50);
+  const [hunterResults, setHunterResults] = useState<Record<string, { contacts: HunterContact[]; count: number }>>({});
   const [importingDomain, setImportingDomain] = useState<string | null>(null);
-  const [importedDomains, setImportedDomains] = useState<Record<string, number>>({});
-  const [importingAll, setImportingAll] = useState(false);
 
   // Shared
   const [maxResults, setMaxResults] = useState(50);
@@ -155,11 +125,11 @@ export default function LeadFinder() {
   const switchSource = (s: "apollo" | "hunter") => {
     setSource(s);
     setApolloResults([]);
-    setHunterCompanies([]);
+    setHunterResults({});
+    setHunterDomains([]);
     setImported(false);
     setError("");
     setImportTag(s === "hunter" ? "hunter-import" : "apollo-import");
-    setImportedDomains({});
   };
 
   // ── Apollo search ────────────────────────────────────────────────────────
@@ -182,54 +152,40 @@ export default function LeadFinder() {
     } finally { setLoading(false); }
   };
 
-  // ── Hunter discover ──────────────────────────────────────────────────────
+  // ── Hunter domain search ─────────────────────────────────────────────────
 
-  const handleHunterDiscover = async () => {
-    setError(""); setImported(false); setLoading(true); setHunterCompanies([]);
-    try {
-      const body: Record<string, unknown> = { max_companies: hunterMaxCompanies };
-      if (hunterIndustry) body.industry = hunterIndustry;
-      if (hunterCountry) body.country = hunterCountry;
-      if (hunterSize) body.size_range = hunterSize;
-      if (hunterType) body.company_type = hunterType;
-      if (hunterKeyword.trim()) body.keyword = hunterKeyword.trim();
-      const res = await hunterDiscover(body);
-      setHunterCompanies(res.companies ?? []);
-      if ((res.companies ?? []).length === 0) setError("No companies found for these filters. Try broader criteria.");
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } } };
-      setError(err.response?.data?.detail ?? "Hunter search failed. Check your Hunter.io API key in Settings.");
-    } finally { setLoading(false); }
+  const addHunterDomain = () => {
+    const d = hunterDomainInput.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (d && !hunterDomains.includes(d)) setHunterDomains((prev) => [...prev, d]);
+    setHunterDomainInput("");
   };
 
-  const handleImportDomain = async (domain: string) => {
+  const removeHunterDomain = (d: string) => setHunterDomains((prev) => prev.filter((x) => x !== d));
+
+  const handleHunterSearch = async (domain: string) => {
     setImportingDomain(domain);
+    setError("");
     try {
-      const res = await fetchHunterLeads({ domain, max_results: 50, import_tag: importTag });
-      setImportedDomains((prev) => ({ ...prev, [domain]: res.fetched ?? 0 }));
+      const res = await fetchHunterLeads({ domain, max_results: hunterMaxResults, import_tag: importTag });
+      setHunterResults((prev) => ({ ...prev, [domain]: { contacts: [], count: res.fetched ?? 0 } }));
+      setFetchCount((prev) => prev + (res.fetched ?? 0));
+      setImported(true);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
-      setError(err.response?.data?.detail ?? `Failed to import contacts from ${domain}.`);
+      setError(err.response?.data?.detail ?? `Failed to import from ${domain}. Check your Hunter.io API key.`);
     } finally { setImportingDomain(null); }
   };
 
-  const handleImportAll = async () => {
-    setImportingAll(true);
-    const notImported = hunterCompanies.filter((c) => !(c.domain in importedDomains));
-    let total = 0;
-    for (const company of notImported) {
-      try {
-        const res = await fetchHunterLeads({ domain: company.domain, max_results: 20, import_tag: importTag });
-        setImportedDomains((prev) => ({ ...prev, [company.domain]: res.fetched ?? 0 }));
-        total += res.fetched ?? 0;
-      } catch { /* skip failed domains */ }
+  const handleHunterSearchAll = async () => {
+    setLoading(true); setError(""); setImported(false);
+    for (const domain of hunterDomains) {
+      if (hunterResults[domain]) continue;
+      await handleHunterSearch(domain);
     }
-    setFetchCount(total);
-    setImported(true);
-    setImportingAll(false);
+    setLoading(false);
   };
 
-  const totalImported = Object.values(importedDomains).reduce((a, b) => a + b, 0);
+  const totalHunterImported = Object.values(hunterResults).reduce((a, b) => a + b.count, 0);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -281,85 +237,51 @@ export default function LeadFinder() {
             </div>
           )}
 
-          {/* HUNTER filters */}
+          {/* HUNTER domain search */}
           {source === "hunter" && (
-            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-5">
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Discover Companies</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Domain Search</h3>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
-                Find companies by industry, location and size, then import their contacts.
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Enter company domains to find and import verified email contacts.
               </p>
 
-              {/* Headquarters location */}
+              {/* Domain input */}
               <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Headquarters Location</label>
-                <select className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-orange-500 transition"
-                  value={hunterCountry} onChange={(e) => setHunterCountry(e.target.value)}>
-                  <option value="">Any country</option>
-                  {HUNTER_COUNTRIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Domains</label>
+                <div className="bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg p-2 flex flex-wrap gap-1.5 min-h-[42px]">
+                  {hunterDomains.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-md px-2 py-0.5 text-xs">
+                      {d}
+                      <button onClick={() => removeHunterDomain(d)} className="text-orange-400/60 hover:text-orange-400 ml-0.5">&#10005;</button>
+                    </span>
+                  ))}
+                  <input
+                    className="flex-1 min-w-[140px] bg-transparent text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none"
+                    placeholder={hunterDomains.length === 0 ? "dronecompany.com..." : ""}
+                    value={hunterDomainInput}
+                    onChange={(e) => setHunterDomainInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addHunterDomain(); } }}
+                    onBlur={addHunterDomain}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Press Enter to add multiple domains</p>
               </div>
 
-              {/* Industry */}
+              {/* Max contacts */}
               <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Industry</label>
-                <select className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-orange-500 transition"
-                  value={hunterIndustry} onChange={(e) => setHunterIndustry(e.target.value)}>
-                  <option value="">Any industry</option>
-                  {HUNTER_INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-                </select>
-              </div>
-
-              {/* Size */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Size</label>
-                <ToggleChips
-                  options={HUNTER_SIZES}
-                  selected={hunterSize ? [hunterSize] : []}
-                  onToggle={(v) => setHunterSize(hunterSize === v ? "" : v)}
-                  color="orange"
-                />
-              </div>
-
-              {/* Company type */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Company Type</label>
-                <ToggleChips
-                  options={HUNTER_TYPES}
-                  selected={hunterType ? [hunterType] : []}
-                  onToggle={(v) => setHunterType(hunterType === v ? "" : v)}
-                  color="orange"
-                />
-              </div>
-
-              {/* Keywords */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Keywords</label>
-                <input
-                  className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-orange-500 transition"
-                  placeholder="e.g. drone, UAV, aerospace..."
-                  value={hunterKeyword}
-                  onChange={(e) => setHunterKeyword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleHunterDiscover(); }}
-                />
-              </div>
-
-              {/* Max companies */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">
-                  Max Companies to Find
-                </label>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Max contacts per domain</label>
                 <div className="flex items-center gap-3">
-                  <input type="range" min={5} max={100} step={5} value={hunterMaxCompanies}
-                    onChange={(e) => setHunterMaxCompanies(parseInt(e.target.value))}
+                  <input type="range" min={5} max={100} step={5} value={hunterMaxResults}
+                    onChange={(e) => setHunterMaxResults(parseInt(e.target.value))}
                     className="flex-1 accent-orange-500" />
-                  <span className="text-sm font-mono text-orange-400 w-8 text-right">{hunterMaxCompanies}</span>
+                  <span className="text-sm font-mono text-orange-400 w-8 text-right">{hunterMaxResults}</span>
                 </div>
               </div>
             </div>
@@ -393,8 +315,8 @@ export default function LeadFinder() {
           {error && <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400">{error}</div>}
 
           <button
-            onClick={source === "apollo" ? handleApolloSearch : handleHunterDiscover}
-            disabled={loading}
+            onClick={source === "apollo" ? handleApolloSearch : handleHunterSearchAll}
+            disabled={loading || (source === "hunter" && hunterDomains.length === 0)}
             className={`w-full disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm transition flex items-center justify-center gap-2 ${source === "hunter" ? "bg-orange-500 hover:bg-orange-400" : "bg-sky-500 hover:bg-sky-400"}`}>
             {loading ? (
               <>
@@ -402,9 +324,9 @@ export default function LeadFinder() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {source === "hunter" ? "Searching companies..." : "Fetching from Apollo..."}
+                {source === "hunter" ? "Importing contacts..." : "Fetching from Apollo..."}
               </>
-            ) : source === "hunter" ? "Find Companies →" : "Fetch Leads →"}
+            ) : source === "hunter" ? "Import Contacts →" : "Fetch Leads →"}
           </button>
         </div>
 
@@ -415,73 +337,57 @@ export default function LeadFinder() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between px-5 py-3.5 border-b border-slate-100 dark:border-surface-400/30">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {source === "hunter" && hunterCompanies.length > 0
-                  ? `${hunterCompanies.length} companies found`
+                {source === "hunter" && totalHunterImported > 0
+                  ? `${totalHunterImported} contacts imported`
                   : source === "apollo" && apolloResults.length > 0
                   ? `${apolloResults.length} leads fetched`
                   : "Results"}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
-                {source === "hunter" && hunterCompanies.length > 0 && (
-                  <>
-                    {totalImported > 0 && (
-                      <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                        ✓ {totalImported} contacts imported
-                      </span>
-                    )}
-                    <button
-                      onClick={handleImportAll}
-                      disabled={importingAll || hunterCompanies.every((c) => c.domain in importedDomains)}
-                      className="text-xs bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5"
-                    >
-                      {importingAll ? (
-                        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Importing...</>
-                      ) : "Import All Contacts"}
-                    </button>
-                  </>
+                {source === "hunter" && totalHunterImported > 0 && (
+                  <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                    &#10003; {totalHunterImported} contacts saved
+                  </span>
                 )}
                 {source === "apollo" && imported && apolloResults.length > 0 && (
                   <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                    ✓ Saved with tag "{importTag}"
+                    &#10003; Saved with tag "{importTag}"
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Hunter company list */}
-            {source === "hunter" && hunterCompanies.length > 0 && (
+            {/* Hunter domain results */}
+            {source === "hunter" && hunterDomains.length > 0 && (
               <div className="overflow-y-auto flex-1 divide-y divide-slate-100 dark:divide-surface-400/15">
-                {hunterCompanies.map((company) => {
-                  const isImported = company.domain in importedDomains;
-                  const isImporting = importingDomain === company.domain;
+                {hunterDomains.map((domain) => {
+                  const result = hunterResults[domain];
+                  const isImporting = importingDomain === domain;
                   return (
-                    <div key={company.domain} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-surface-600/40 transition">
+                    <div key={domain} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-surface-600/40 transition">
                       <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 text-xs font-bold shrink-0">
-                        {company.name[0]?.toUpperCase() ?? "?"}
+                        {domain[0]?.toUpperCase() ?? "?"}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{company.name}</p>
-                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                          <span className="text-xs text-slate-400 dark:text-slate-500">{company.domain}</span>
-                          {company.industry && <span className="text-xs text-slate-400 dark:text-slate-500">· {company.industry}</span>}
-                          {company.country && <span className="text-xs text-slate-400 dark:text-slate-500">· {company.country}</span>}
-                          {company.size && <span className="text-xs text-slate-400 dark:text-slate-500">· {company.size} emp</span>}
-                        </div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">{domain}</p>
+                        {result && (
+                          <p className="text-xs text-emerald-500 mt-0.5">{result.count} contacts imported</p>
+                        )}
                       </div>
                       <div className="shrink-0">
-                        {isImported ? (
+                        {result ? (
                           <span className="text-xs text-emerald-500 font-medium flex items-center gap-1">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
-                            {importedDomains[company.domain]} contacts
+                            Done
                           </span>
                         ) : (
                           <button
-                            onClick={() => handleImportDomain(company.domain)}
-                            disabled={isImporting || importingAll}
-                            className="text-xs bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white border border-orange-500/30 hover:border-orange-500 px-3 py-1.5 rounded-lg transition disabled:opacity-50 font-medium"
+                            onClick={() => handleHunterSearch(domain)}
+                            disabled={isImporting}
+                            className="text-xs bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white border border-orange-500/30 hover:border-orange-500 px-3 py-1.5 rounded-lg transition disabled:opacity-50 font-medium flex items-center gap-1.5"
                           >
                             {isImporting ? (
-                              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                              <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Importing...</>
                             ) : "Import"}
                           </button>
                         )}
@@ -493,16 +399,16 @@ export default function LeadFinder() {
             )}
 
             {/* Hunter empty state */}
-            {source === "hunter" && hunterCompanies.length === 0 && (
+            {source === "hunter" && hunterDomains.length === 0 && (
               <div className="flex flex-col items-center justify-center flex-1 p-12 text-center">
                 <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-4">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.5">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                   </svg>
                 </div>
-                <p className="text-slate-900 dark:text-white font-medium mb-1">Find companies</p>
+                <p className="text-slate-900 dark:text-white font-medium mb-1">Enter company domains</p>
                 <p className="text-slate-400 dark:text-slate-500 text-sm max-w-xs">
-                  Set your filters on the left — industry, location, size — and click "Find Companies" to discover relevant organisations.
+                  Type a domain (e.g. <span className="font-mono text-orange-400">dronetech.in</span>) in the panel on the left and press Enter, then click "Import Contacts".
                 </p>
               </div>
             )}

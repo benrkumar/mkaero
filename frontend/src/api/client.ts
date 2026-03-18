@@ -52,11 +52,11 @@ export const fetchApolloLeads = (body: object) =>
   api.post("/apollo/fetch", body).then((r) => r.data);
 
 // ── Hunter.io ─────────────────────────────────────────────────────────────
-export const hunterDiscover = (body: object) =>
-  api.post("/hunter/discover", body).then((r) => r.data);
-
 export const fetchHunterLeads = (body: { domain: string; max_results?: number; import_tag?: string }) =>
   api.post("/hunter/domain-search", body).then((r) => r.data);
+
+export const fetchLeadsForCampaign = (campaignId: string, domain: string, maxResults = 50) =>
+  api.post(`/campaigns/${campaignId}/fetch-leads`, { domain, max_results: maxResults }).then((r) => r.data);
 
 // ── Settings ──────────────────────────────────────────────────────────────
 export const getSettings = () =>
@@ -129,8 +129,6 @@ export const generateCampaign = (body: {
   max_leads?: number;
   email_channel?: boolean;
   linkedin_channel?: boolean;
-  auto_fetch_leads?: boolean;
-  auto_enroll?: boolean;
   auto_start?: boolean;
 }) => api.post("/wizard/generate", body).then((r) => r.data);
 
