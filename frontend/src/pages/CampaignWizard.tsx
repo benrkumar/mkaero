@@ -107,8 +107,8 @@ export default function CampaignWizard() {
       setHasMailgun(!!(hv.mailgun_api_key && hv.mailgun_domain));
       setHasPhantombuster(!!hv.phantombuster_api_key);
       setHasAI(!!(hv.anthropic_api_key || hv.gemini_api_key));
-      // Auto-set channels based on what's configured
-      setEmailChannel(!!(hv.mailgun_api_key && hv.mailgun_domain));
+      // Auto-enable LinkedIn only if Phantombuster is configured; email always on
+      if (hv.phantombuster_api_key) setLinkedinChannel(true);
     }).catch(() => {});
   }, []);
 

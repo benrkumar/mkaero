@@ -16,6 +16,22 @@ from app.models.contact import ContactStatus
 from app.models.sequence_step import SequenceStep, StepChannel
 from app.services.campaign_wizard_service import CampaignWizardService
 from app.services.apollo_service import ApolloService
+from app.services.hunter_service import HunterService
+
+# Human-readable step labels — no AI summarisation needed
+STEP_LABELS = {
+    1: "Introduction",
+    2: "Social Proof",
+    3: "Direct Ask",
+    4: "Breakup",
+}
+
+# Map common location strings to ISO-2 country codes for Hunter
+_COUNTRY_MAP = {
+    "india": "IN", "united states": "US", "usa": "US", "us": "US",
+    "united kingdom": "GB", "uk": "GB", "germany": "DE", "australia": "AU",
+    "canada": "CA", "singapore": "SG", "uae": "AE", "dubai": "AE",
+}
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -74,28 +90,30 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
     db.add(campaign)
     db.flush()
 
+    # Only include LinkedIn content when the channel is enabled
+    li_note = plan.get("linkedin_connection_note", "") if body.linkedin_channel else ""
+    li_followup = plan.get("linkedin_followup", "") if body.linkedin_channel else ""
+
     steps_preview = []
     for email_step in plan["email_sequence"]:
+        step_num = email_step["step"]
         step = SequenceStep(
             id=str(uuid.uuid4()),
             campaign_id=campaign.id,
-            step_order=email_step["step"],
+            step_order=step_num,
             channel=StepChannel.email,
             delay_days=email_step["delay_days"],
             subject_template=email_step["subject"],
             body_template=email_step["body"],
             linkedin_message_template=(
-                plan["linkedin_connection_note"] if email_step["step"] == 1
-                else plan["linkedin_followup"]
+                li_note if step_num == 1 else li_followup
             ),
         )
         db.add(step)
-        try:
-            summary = CampaignWizardService(db).summarize_email(email_step["subject"], email_step["body"])
-        except Exception:
-            summary = email_step["subject"]
+        # Use static, meaningful step labels instead of brittle AI summarisation
+        summary = STEP_LABELS.get(step_num, f"Step {step_num}")
         steps_preview.append(WizardStepPreview(
-            step=email_step["step"],
+            step=step_num,
             delay_days=email_step["delay_days"],
             subject=email_step["subject"],
             body=email_step["body"],
@@ -107,49 +125,97 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
     leads_fetched = 0
     leads_enrolled = 0
     filters = plan["apollo_filters"]
+    contacts = []
+    lead_source = None
 
-    if body.auto_fetch_leads and filters.get("job_titles"):
-        try:
-            contacts = ApolloService(db).fetch_leads(
-                db=db,
-                job_titles=filters.get("job_titles", []),
-                industries=filters.get("industries", []),
-                locations=filters.get("locations", ["India"]),
-                company_sizes=filters.get("company_sizes"),
-                max_results=body.max_leads,
-            )
-            leads_fetched = len(contacts)
-            if body.auto_enroll and contacts:
-                first_step_order = plan["email_sequence"][0]["step"]
-                for contact in contacts:
-                    existing = db.query(CampaignLead).filter(
-                        CampaignLead.campaign_id == campaign.id,
-                        CampaignLead.contact_id == contact.id,
-                    ).first()
-                    if not existing:
-                        db.add(CampaignLead(
-                            id=str(uuid.uuid4()),
-                            campaign_id=campaign.id,
-                            contact_id=contact.id,
-                            current_step=first_step_order,
-                            status=CampaignLeadStatus.active,
-                            next_send_at=datetime.utcnow(),
-                        ))
-                        contact.status = ContactStatus.in_campaign
-                        leads_enrolled += 1
-                db.commit()
-        except Exception as exc:
-            logger.warning("Apollo fetch skipped: %s", exc)
+    if body.auto_fetch_leads:
+        # ── Try Apollo first ──────────────────────────────────────────────────
+        if filters.get("job_titles"):
+            try:
+                contacts = ApolloService(db).fetch_leads(
+                    db=db,
+                    job_titles=filters.get("job_titles", []),
+                    industries=filters.get("industries", []),
+                    locations=filters.get("locations", ["India"]),
+                    company_sizes=filters.get("company_sizes"),
+                    max_results=body.max_leads,
+                )
+                lead_source = "apollo"
+            except Exception as exc:
+                logger.warning("Apollo fetch skipped: %s", exc)
+
+        # ── Hunter.io fallback when Apollo produces nothing ───────────────────
+        if not contacts:
+            try:
+                hunter = HunterService(db)
+                industries = filters.get("industries", [])
+                industry = industries[0] if industries else None
+                # Map first location to ISO country code
+                locations = filters.get("locations", ["India"])
+                country = None
+                for loc in locations:
+                    country = _COUNTRY_MAP.get(loc.lower())
+                    if country:
+                        break
+
+                companies = hunter.discover_companies(
+                    industry=industry,
+                    country=country,
+                    max_companies=min(max(body.max_leads // 5, 5), 20),
+                )
+                for company in companies:
+                    if len(contacts) >= body.max_leads:
+                        break
+                    try:
+                        domain_contacts = hunter.search_domain(
+                            db=db,
+                            domain=company["domain"],
+                            max_results=max(body.max_leads // max(len(companies), 1), 3),
+                            import_tag="wizard-hunter",
+                        )
+                        contacts.extend(domain_contacts)
+                    except Exception:
+                        continue
+                contacts = contacts[: body.max_leads]
+                if contacts:
+                    lead_source = "hunter"
+            except Exception as exc:
+                logger.warning("Hunter fallback skipped: %s", exc)
+
+    leads_fetched = len(contacts)
+    if body.auto_enroll and contacts:
+        first_step_order = plan["email_sequence"][0]["step"]
+        for contact in contacts:
+            existing = db.query(CampaignLead).filter(
+                CampaignLead.campaign_id == campaign.id,
+                CampaignLead.contact_id == contact.id,
+            ).first()
+            if not existing:
+                db.add(CampaignLead(
+                    id=str(uuid.uuid4()),
+                    campaign_id=campaign.id,
+                    contact_id=contact.id,
+                    current_step=first_step_order,
+                    status=CampaignLeadStatus.active,
+                    next_send_at=datetime.utcnow(),
+                ))
+                contact.status = ContactStatus.in_campaign
+                leads_enrolled += 1
+        db.commit()
 
     if body.auto_start and leads_enrolled > 0:
         campaign.status = CampaignStatus.active
         db.commit()
 
-    parts = [f"Campaign created."]
+    parts = ["Campaign created."]
     if leads_fetched:
-        parts.append(f"{leads_fetched} leads fetched, {leads_enrolled} enrolled.")
+        src_label = {"apollo": "Apollo", "hunter": "Hunter.io"}.get(lead_source or "", "")
+        parts.append(
+            f"{leads_fetched} leads fetched{' via ' + src_label if src_label else ''}, "
+            f"{leads_enrolled} enrolled."
+        )
     else:
-        parts.append("Add your Apollo API key in Settings to auto-import leads.")
+        parts.append("Add your Apollo or Hunter.io API key in Settings to auto-import leads.")
 
     return WizardResponse(
         campaign_id=campaign.id,
@@ -157,8 +223,8 @@ def generate_campaign(body: WizardRequest, db: Session = Depends(get_db)):
         summary=plan["summary"],
         apollo_filters=plan["apollo_filters"],
         steps_preview=steps_preview,
-        linkedin_connection_note=plan.get("linkedin_connection_note", ""),
-        linkedin_followup=plan.get("linkedin_followup", ""),
+        linkedin_connection_note=li_note,
+        linkedin_followup=li_followup,
         leads_fetched=leads_fetched,
         leads_enrolled=leads_enrolled,
         status="active" if body.auto_start and leads_enrolled > 0 else "draft",

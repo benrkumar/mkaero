@@ -16,7 +16,7 @@ export default function EmailCampaigns() {
 
   const load = () =>
     getCampaigns()
-      .then((all: any[]) => setCampaigns(all.filter((c) => c.email_channel && !c.linkedin_channel || c.email_channel)))
+      .then((all: any[]) => setCampaigns(all))
       .catch(console.error)
       .finally(() => setLoading(false));
 
@@ -71,7 +71,12 @@ export default function EmailCampaigns() {
         <div className="bg-gradient-drone rounded-xl p-10 text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-10" style={{backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "20px 20px"}} />
           <div className="relative z-10">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-4 text-3xl">\u2709\ufe0f</div>
+            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <polyline points="2,4 12,14 22,4" />
+                </svg>
+              </div>
             <h2 className="text-xl font-bold text-white mb-2">No campaigns yet</h2>
             <p className="text-white/70 text-sm mb-6 max-w-md mx-auto">
               Create your first email campaign. Use the AI Wizard for instant setup or the Manual Builder for full control.
@@ -105,7 +110,8 @@ export default function EmailCampaigns() {
               </div>
               <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500">
                 <span>{c.steps?.length ?? 0} steps</span>
-                <span>{c.email_channel ? "\u2709 Email" : ""}</span>
+                {c.email_channel && <span>Email</span>}
+                {c.linkedin_channel && <span>LinkedIn</span>}
                 <span>{new Date(c.created_at).toLocaleDateString()}</span>
               </div>
             </div>
