@@ -89,7 +89,7 @@ def _call_gemini(db: Session, prompt: str, system: str, max_tokens: int) -> str:
     genai.configure(api_key=api_key)
 
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+        model_name="gemini-2.5-flash",
         system_instruction=system if system else None,
     )
 
@@ -112,7 +112,7 @@ def _call_gemini_fast(db: Session, prompt: str, max_tokens: int) -> str:
         raise ValueError("Gemini API key is not configured.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name="gemini-2.0-flash-lite")
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash")
     response = model.generate_content(
         prompt,
         generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
