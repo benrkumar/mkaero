@@ -36,12 +36,11 @@ def _render(template: str, contact: Contact) -> str:
 def _send_email_step(db: Session, lead: CampaignLead, step: SequenceStep) -> bool:
     """Send an email for the given step. Returns True on success."""
     try:
-        from app.services.email_service import EmailService, render_html_body
+        from app.services.email_service import EmailService
         email_service = EmailService(db)
         contact = lead.contact
         subject = _render(step.subject_template or "", contact)
         body = _render(step.body_template or "", contact)
-        html_body = render_html_body(body)
         if not contact.email:
             logger.warning("Contact %s has no email, skipping", contact.id)
             return False
@@ -50,7 +49,6 @@ def _send_email_step(db: Session, lead: CampaignLead, step: SequenceStep) -> boo
             to_name=f"{contact.first_name} {contact.last_name}",
             subject=subject,
             text_body=body,
-            html_body=html_body,
             tracking_id=f"{lead.id}:{step.step_order}",
             campaign_id=str(lead.campaign_id),
         )

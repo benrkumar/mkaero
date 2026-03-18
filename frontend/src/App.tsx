@@ -1,4 +1,5 @@
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import LeadFinder from "./pages/LeadFinder";
@@ -68,78 +69,107 @@ function NavItem({ to, icon, label, highlight, end }: { to: string; icon: string
 function SectionLabel({ children }: { children: string }) {
   return <p className="px-5 pt-5 pb-1 text-xs uppercase tracking-widest text-slate-400 dark:text-surface-200 font-semibold">{children}</p>;
 }
-function Sidebar() {
+function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { theme, toggle } = useTheme();
   return (
-    <aside className="w-56 shrink-0 h-screen flex flex-col bg-white dark:bg-surface-950 border-r border-slate-200 dark:border-surface-400/20 overflow-y-auto">
-      <div className="p-4 border-b border-slate-200 dark:border-surface-400/20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-drone flex items-center justify-center shrink-0 text-white text-xs font-bold">
-            IAS
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-slate-500 dark:text-surface-100 truncate">Indo Aerial Systems</p>
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Marketing Control Center</p>
+    <>
+      {/* Mobile overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-30 w-56 flex flex-col bg-white dark:bg-surface-950
+          border-r border-slate-200 dark:border-surface-400/20 overflow-y-auto
+          transition-transform duration-200
+          ${open ? "translate-x-0" : "-translate-x-full"}
+          md:static md:translate-x-0 md:shrink-0 md:h-screen
+        `}
+      >
+        <div className="p-4 border-b border-slate-200 dark:border-surface-400/20">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-drone flex items-center justify-center shrink-0 text-white text-xs font-bold">
+              IAS
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 dark:text-surface-100 truncate">Indo Aerial Systems</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Marketing Control Center</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav className="flex-1 py-2">
-        <SectionLabel>Overview</SectionLabel>
-        <NavItem to="/" end icon="dashboard" label="Dashboard" />
+        <nav className="flex-1 py-2" onClick={onClose}>
+          <SectionLabel>Overview</SectionLabel>
+          <NavItem to="/" end icon="dashboard" label="Dashboard" />
 
-        <SectionLabel>Intelligence</SectionLabel>
-        <NavItem to="/leads"    icon="radar"    label="Lead Finder" />
-        <NavItem to="/contacts" icon="contacts" label="Contacts" />
+          <SectionLabel>Intelligence</SectionLabel>
+          <NavItem to="/leads"    icon="radar"    label="Lead Finder" />
+          <NavItem to="/contacts" icon="contacts" label="Contacts" />
 
-        <SectionLabel>Campaigns</SectionLabel>
-        <NavItem to="/email"    icon="email"    label="Email Campaigns" />
-        <NavItem to="/linkedin" icon="linkedin" label="LinkedIn Outreach" />
-        <NavItem to="/wizard"   icon="ai"       label="AI Wizard" highlight />
+          <SectionLabel>Campaigns</SectionLabel>
+          <NavItem to="/email"    icon="email"    label="Email Campaigns" />
+          <NavItem to="/linkedin" icon="linkedin" label="LinkedIn Outreach" />
+          <NavItem to="/wizard"   icon="ai"       label="AI Wizard" highlight />
 
-        <SectionLabel>Insights</SectionLabel>
-        <NavItem to="/analytics" icon="analytics" label="Analytics" />
+          <SectionLabel>Insights</SectionLabel>
+          <NavItem to="/analytics" icon="analytics" label="Analytics" />
 
-        <SectionLabel>System</SectionLabel>
-        <NavItem to="/settings" icon="settings" label="Settings" />
-      </nav>
+          <SectionLabel>System</SectionLabel>
+          <NavItem to="/settings" icon="settings" label="Settings" />
+        </nav>
 
-      <div className="p-3 border-t border-slate-200 dark:border-surface-400/20 space-y-2">
-        <button
-          onClick={toggle}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-surface-700 hover:bg-slate-200 dark:hover:bg-surface-600 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs transition"
-        >
-          <Icon d={theme === "dark" ? ICONS.sun : ICONS.moon} size={13} />
-          {theme === "dark" ? "Light Mode" : "Dark Mode"}
-        </button>
-        <p className="text-xs text-slate-400 dark:text-surface-200 text-center leading-relaxed">Tough Parts. Smart Prices. Made in India.</p>
-      </div>
-    </aside>
+        <div className="p-3 border-t border-slate-200 dark:border-surface-400/20 space-y-2">
+          <button
+            onClick={toggle}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-surface-700 hover:bg-slate-200 dark:hover:bg-surface-600 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs transition"
+          >
+            <Icon d={theme === "dark" ? ICONS.sun : ICONS.moon} size={13} />
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </button>
+          <p className="text-xs text-slate-400 dark:text-surface-200 text-center leading-relaxed">Tough Parts. Smart Prices. Made in India.</p>
+        </div>
+      </aside>
+    </>
   );
 }
-function TopBar() {
+
+function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const location = useLocation();
   const title = PAGE_NAMES[location.pathname] ?? "Campaign Builder";
   return (
-    <header className="h-12 shrink-0 bg-white dark:bg-surface-900 border-b border-slate-200 dark:border-surface-400/20 flex items-center px-6 gap-4">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex-1">{title}</h2>
+    <header className="h-12 shrink-0 bg-white dark:bg-surface-900 border-b border-slate-200 dark:border-surface-400/20 flex items-center px-4 md:px-6 gap-3">
+      {/* Hamburger — mobile only */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-surface-700 transition"
+        aria-label="Open menu"
+      >
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <path d="M3 12h18M3 6h18M3 18h18" />
+        </svg>
+      </button>
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex-1 truncate">{title}</h2>
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           Online
         </div>
-        <div className="w-7 h-7 rounded-full bg-gradient-drone flex items-center justify-center text-white text-xs font-bold">IAS</div>
+        <div className="w-7 h-7 rounded-full bg-gradient-drone flex items-center justify-center text-white text-xs font-bold shrink-0">IAS</div>
       </div>
     </header>
   );
 }
 
 function AppInner() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-surface-900">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopBar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-surface-900">
           <Routes>
             <Route path="/"                  element={<Dashboard />} />

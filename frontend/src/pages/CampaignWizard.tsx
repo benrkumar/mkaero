@@ -242,7 +242,7 @@ export default function CampaignWizard() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
       {/* ── Page header ── */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -433,7 +433,7 @@ export default function CampaignWizard() {
         <div className="space-y-5">
           {/* ── Success banner ── */}
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-emerald-400">
@@ -452,7 +452,7 @@ export default function CampaignWizard() {
               </div>
               <button
                 onClick={() => navigate(`/campaigns/${result.campaign_id}`)}
-                className="shrink-0 bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                className="shrink-0 bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition w-full sm:w-auto"
               >
                 View Campaign
               </button>

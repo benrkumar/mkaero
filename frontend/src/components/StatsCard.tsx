@@ -28,7 +28,7 @@ export default function StatsCard({ label, value, sub, delta, deltaPositive, col
         {icon && <span className="text-lg">{icon}</span>}
         <span className={`w-2 h-2 rounded-full ${DOT[color]} mt-0.5`} />
       </div>
-      <p className="text-3xl font-bold font-mono text-slate-900 dark:text-white tabular-nums">{value}</p>
+      <p className="text-2xl md:text-3xl font-bold font-mono text-slate-900 dark:text-white tabular-nums">{value}</p>
       <div className="flex items-center gap-2 mt-2">
         {delta && (
           <span className={`text-xs font-medium ${deltaPositive ? "text-emerald-400" : "text-red-400"}`}>

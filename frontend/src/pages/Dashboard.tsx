@@ -41,7 +41,7 @@ export default function Dashboard() {
   const recentCampaigns = campaigns.slice(0, 6);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Command Center</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
@@ -65,15 +65,15 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+        <div className="col-span-1 lg:col-span-2 space-y-4">
           {/* AI Wizard promo */}
           <div className="bg-gradient-drone rounded-xl p-6 relative overflow-hidden">
             <div
               className="absolute inset-0 opacity-10"
               style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }}
             />
-            <div className="relative z-10 flex items-center justify-between">
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-widest text-white/60 mb-1">AI-Powered</p>
                 <h2 className="text-xl font-bold text-white mb-1">Campaign Wizard</h2>
@@ -81,7 +81,7 @@ export default function Dashboard() {
                   Describe your audience. AI generates the full campaign &#8212; email sequence, LinkedIn messages, and leads from Apollo.
                 </p>
               </div>
-              <Link to="/wizard" className="shrink-0 ml-6 bg-white/20 hover:bg-white/30 border border-white/30 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
+              <Link to="/wizard" className="shrink-0 mt-4 sm:mt-0 ml-0 sm:ml-6 bg-white/20 hover:bg-white/30 border border-white/30 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
                 Launch Wizard
               </Link>
             </div>

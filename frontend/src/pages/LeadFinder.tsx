@@ -165,7 +165,7 @@ export default function LeadFinder() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lead Finder</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
@@ -173,7 +173,7 @@ export default function LeadFinder() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Filters */}
         <div className="col-span-1 space-y-4">
           <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-5">
@@ -260,9 +260,9 @@ export default function LeadFinder() {
         </div>
 
         {/* Results */}
-        <div className="col-span-2">
+        <div className="col-span-1 lg:col-span-2">
           <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden h-full flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-surface-400/30">
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between px-5 py-3.5 border-b border-slate-100 dark:border-surface-400/30">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 {results.length > 0 ? `${results.length} leads fetched` : "Results"}
               </h3>
@@ -286,13 +286,15 @@ export default function LeadFinder() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto flex-1">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white dark:bg-surface-700">
                     <tr className="border-b border-surface-400/20">
-                      {["Name", "Title", "Company", "Location", "Channels"].map((h) => (
-                        <th key={h} className="text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">{h}</th>
-                      ))}
+                      <th className="text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Name</th>
+                      <th className="hidden sm:table-cell text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Title</th>
+                      <th className="hidden sm:table-cell text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Company</th>
+                      <th className="hidden md:table-cell text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Location</th>
+                      <th className="text-left px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Channels</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-surface-400/15">
@@ -306,9 +308,9 @@ export default function LeadFinder() {
                             <span className="text-slate-900 dark:text-white font-medium">{r.first_name} {r.last_name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.title}</td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{r.company}</td>
-                        <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">{r.location}</td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.title}</td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{r.company}</td>
+                        <td className="hidden md:table-cell px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">{r.location}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
                             {r.email && <span className="text-xs bg-sky-500/15 text-sky-400 border border-sky-500/25 rounded px-1.5 py-0.5">Email</span>}

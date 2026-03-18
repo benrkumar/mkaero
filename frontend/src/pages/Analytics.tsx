@@ -94,12 +94,12 @@ function OverviewTab({ overview, campaigns }: { overview: any; campaigns: any[] 
             <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-semibold mb-2">
               {k.label}
             </p>
-            <p className={`text-3xl font-bold font-mono ${k.color}`}>{k.value}</p>
+            <p className={`text-2xl md:text-3xl font-bold font-mono ${k.color}`}>{k.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Email funnel chart */}
         <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Email Funnel</h3>
@@ -217,7 +217,7 @@ function EmailTab({ campaigns, overview }: { campaigns: any[]; overview: any }) 
   return (
     <div className="space-y-6">
       {/* Funnel cards */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         {[
           { label: "Sent", value: sent, color: "text-sky-400", bg: "bg-sky-500/10 border-sky-500/20" },
           { label: "Opened", value: opened, color: "text-violet-400", bg: "bg-violet-500/10 border-violet-500/20" },
@@ -230,7 +230,7 @@ function EmailTab({ campaigns, overview }: { campaigns: any[]; overview: any }) 
               <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-semibold mb-2">
                 {card.label}
               </p>
-              <p className={`text-3xl font-bold font-mono ${card.color}`}>
+              <p className={`text-2xl md:text-3xl font-bold font-mono ${card.color}`}>
                 {card.value.toLocaleString()}
               </p>
               {i > 0 && (
@@ -398,7 +398,7 @@ function LinkedInTab() {
             <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-semibold mb-2">
               {card.label}
             </p>
-            <p className={`text-3xl font-bold font-mono ${card.color}`}>0</p>
+            <p className={`text-2xl md:text-3xl font-bold font-mono ${card.color}`}>0</p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">
               Data synced from Phantombuster runs
             </p>
@@ -469,7 +469,7 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center h-64">
+      <div className="p-4 md:p-6 flex items-center justify-center h-64">
         <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
           <svg className="animate-spin w-5 h-5 text-sky-500" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -488,16 +488,16 @@ export default function Analytics() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Analytics</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Analytics</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
           Email funnel, campaign performance, and LinkedIn activity.
         </p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-1 w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}

@@ -426,15 +426,15 @@ export default function Contacts() {
   };
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Contacts</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{total.toLocaleString()} total</p>
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link
             to="/leads"
             className="text-sm text-slate-500 dark:text-slate-400 hover:text-sky-400 dark:hover:text-sky-400 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 transition"
@@ -473,15 +473,15 @@ export default function Contacts() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         <input
-          className="flex-1 min-w-[200px] bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 transition"
+          className="flex-1 min-w-[200px] w-full bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 transition"
           placeholder="Search by name, email, or company..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
         <select
-          className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500 transition"
+          className="w-full sm:w-auto bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500 transition"
           value={tagFilter}
           onChange={(e) => { setTagFilter(e.target.value); setPage(1); }}
         >
@@ -492,9 +492,9 @@ export default function Contacts() {
 
       {/* Bulk tag bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 bg-sky-500/10 border border-sky-500/30 rounded-xl px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-sky-500/10 border border-sky-500/30 rounded-xl px-4 py-3">
           <span className="text-sm text-sky-400 font-medium">{selected.size} selected</span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
             <input
               className="bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 w-40"
               placeholder="Tag name..."
@@ -518,6 +518,7 @@ export default function Contacts() {
 
       {/* Table */}
       <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 dark:border-surface-400/30">
@@ -525,9 +526,9 @@ export default function Contacts() {
                 <input type="checkbox" checked={selected.size === contacts.length && contacts.length > 0} onChange={toggleAll} className="accent-sky-500" />
               </th>
               <th className="text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Name</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Company</th>
+              <th className="hidden md:table-cell text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Company</th>
               <th className="text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Tags</th>
+              <th className="hidden sm:table-cell text-left px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Tags</th>
               <th className="px-4 py-3 w-8"></th>
             </tr>
           </thead>
@@ -548,7 +549,7 @@ export default function Contacts() {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden md:table-cell px-4 py-3">
                   <p className="text-slate-600 dark:text-slate-300 text-sm">{c.company}</p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">{c.title}</p>
                 </td>
@@ -557,7 +558,7 @@ export default function Contacts() {
                     {c.status}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden sm:table-cell px-4 py-3">
                   <div className="flex flex-wrap gap-1 items-center">
                     {(c.tags ?? []).map((t: string) => (
                       <span key={t} className="text-xs bg-slate-100 dark:bg-surface-500 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-surface-400/40 rounded-md px-1.5 py-0.5">
@@ -588,6 +589,7 @@ export default function Contacts() {
             ))}
           </tbody>
         </table>
+        </div>
         {contacts.length === 0 && (
           <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
             No contacts found.{" "}

@@ -103,7 +103,7 @@ function ContactList({
   onToggleAll: () => void;
 }) {
   return (
-    <div className="col-span-2 bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden">
+    <div className="lg:col-span-2 bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-surface-400/30">
         <div className="flex items-center gap-3">
           <input
@@ -242,7 +242,7 @@ function ConnectTab({
   };
 
   return (
-    <div className="grid grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <ContactList
         contacts={contacts}
         loading={loading}
@@ -403,7 +403,7 @@ function MessageTab({
   };
 
   return (
-    <div className="grid grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <ContactList
         contacts={contacts}
         loading={loading}
@@ -935,10 +935,10 @@ export default function LinkedInOutreach() {
   }, []);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
           LinkedIn Outreach
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">

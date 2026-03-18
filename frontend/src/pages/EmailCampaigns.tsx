@@ -29,13 +29,13 @@ export default function EmailCampaigns() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Email Campaigns</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Multi-step email drip campaigns with AI-generated content</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => navigate("/wizard")}
             className="flex items-center gap-2 bg-gradient-drone text-white font-medium rounded-lg px-4 py-2 text-sm transition opacity-90 hover:opacity-100"
@@ -53,7 +53,7 @@ export default function EmailCampaigns() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[
           { label: "Total Campaigns", value: stats.total, color: "text-slate-900 dark:text-white" },
           { label: "Active", value: stats.active, color: "text-emerald-400" },
@@ -91,7 +91,7 @@ export default function EmailCampaigns() {
       {/* Campaign list */}
       <div className="space-y-3">
         {campaigns.map((c) => (
-          <div key={c.id} className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 flex items-center gap-5 hover:border-slate-300 dark:hover:border-surface-300 transition group">
+          <div key={c.id} className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 hover:border-slate-300 dark:hover:border-surface-300 transition group">
             {/* Status dot */}
             <div className={`w-2 h-2 rounded-full shrink-0 ${c.status === "active" ? "bg-emerald-500 animate-pulse" : c.status === "draft" ? "bg-slate-500" : "bg-amber-500"}`} />
 
@@ -111,7 +111,7 @@ export default function EmailCampaigns() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
               {c.status === "active" ? (
                 <button onClick={() => pauseCampaign(c.id).then(load)} className="px-3 py-1.5 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition">
                   Pause

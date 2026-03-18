@@ -539,9 +539,9 @@ export default function Settings() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Manage API keys and integration credentials. Values are stored securely in the database.
           </p>

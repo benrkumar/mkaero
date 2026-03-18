@@ -60,9 +60,9 @@ function SpinnerIcon({ className }: { className?: string }) {
 function ProgressBar({ step }: { step: number }) {
   const steps = ["Details", "Audience", "Sequence", "Launch"];
   return (
-    <div className="flex items-center gap-0 mb-8">
+    <div className="flex items-center gap-0 mb-8 overflow-x-auto pb-1">
       {steps.map((s, i) => (
-        <div key={s} className="flex items-center">
+        <div key={s} className="flex items-center shrink-0">
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition ${
               i + 1 === step
@@ -113,7 +113,7 @@ function TestEmailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl overflow-y-auto max-h-[90vh]">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
           Send Test Email
         </h3>
@@ -526,7 +526,7 @@ export default function CampaignBuilder() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Toast */}
       {toast && (
         <div
@@ -640,7 +640,7 @@ export default function CampaignBuilder() {
       {/* ── Step 2: Audience ── */}
       {wizStep === 2 && (
         <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-6 space-y-5">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-start sm:justify-between">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Target Audience</h2>
             <div className="bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/40 rounded-lg px-4 py-2 text-center min-w-[100px]">
               {audienceLoading ? (
@@ -886,7 +886,7 @@ export default function CampaignBuilder() {
             </p>
           </div>
 
-          <div className="flex justify-between pt-2">
+          <div className="flex flex-wrap gap-3 justify-between pt-2">
             <button
               onClick={() => setWizStep(1)}
               className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
@@ -906,7 +906,7 @@ export default function CampaignBuilder() {
       {/* ── Step 3: Sequence ── */}
       {wizStep === 3 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Email Sequence</h2>
               <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -915,14 +915,14 @@ export default function CampaignBuilder() {
             </div>
             <button
               onClick={addEmailStep}
-              className="text-sm bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-3 py-2 transition"
+              className="text-sm bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-3 py-2 transition self-start sm:self-auto"
             >
               + Add Step
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-5">
-            <div className="col-span-2 space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 space-y-3">
               {emailSteps.map((s, idx) => {
                 const isActive = activeStepIdx === idx;
                 const isComposing = aiComposing === idx;
@@ -936,7 +936,7 @@ export default function CampaignBuilder() {
                     }`}
                   >
                     {/* Step header */}
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-surface-400/30">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 border-b border-slate-200 dark:border-surface-400/30">
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition ${
                           previewStepIdx === idx || isActive
@@ -1180,8 +1180,8 @@ export default function CampaignBuilder() {
             </div>
 
             {/* Preview panel */}
-            <div className="col-span-1">
-              <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 sticky top-6">
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-4 lg:sticky lg:top-6">
                 <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-3">
                   Preview
                 </p>
@@ -1220,7 +1220,7 @@ export default function CampaignBuilder() {
             </div>
           </div>
 
-          <div className="flex justify-between pt-2">
+          <div className="flex flex-wrap gap-3 justify-between pt-2">
             <button
               onClick={() => setWizStep(2)}
               className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
@@ -1242,7 +1242,7 @@ export default function CampaignBuilder() {
         <div className="space-y-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Review &amp; Launch</h2>
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-4">
               <h3 className="font-medium text-slate-900 dark:text-white text-sm">Campaign Summary</h3>
               <div className="space-y-2 text-sm">
@@ -1320,14 +1320,14 @@ export default function CampaignBuilder() {
             </div>
           </div>
 
-          <div className="flex justify-between pt-2">
+          <div className="flex flex-wrap gap-3 justify-between pt-2">
             <button
               onClick={() => setWizStep(3)}
               className="bg-slate-100 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg px-4 py-2.5 text-sm transition"
             >
               &#8592; Back
             </button>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => {
                   setAutoStart(false);

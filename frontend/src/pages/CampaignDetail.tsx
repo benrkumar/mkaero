@@ -319,17 +319,17 @@ export default function CampaignDetail() {
   };
 
   // ── render ────────────────────────────────────────────────────────────────
-  if (!campaign) return <div className="p-8 text-slate-400 dark:text-slate-500">Loading...</div>;
+  if (!campaign) return <div className="p-4 md:p-8 text-slate-400 dark:text-slate-500">Loading...</div>;
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{campaign.name}</h1>
           <span className="text-sm text-slate-400 dark:text-slate-500 capitalize">{campaign.status}</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {campaign.status === "active" ? (
             <button
               onClick={() => pauseCampaign(id!).then(load)}
@@ -350,7 +350,7 @@ export default function CampaignDetail() {
 
       {/* Analytics summary */}
       {analytics && (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <StatsCard label="Total Leads" value={analytics.total_leads} color="blue" />
           <StatsCard label="Active" value={analytics.active_leads} color="green" />
           <StatsCard label="Replied" value={analytics.replied_leads} color="green" />
@@ -359,7 +359,7 @@ export default function CampaignDetail() {
       )}
 
       {/* Main tab bar */}
-      <div className="bg-slate-100 dark:bg-surface-800 rounded-lg p-1 flex gap-1 mb-4 w-fit">
+      <div className="bg-slate-100 dark:bg-surface-800 rounded-lg p-1 flex gap-1 mb-4 w-fit overflow-x-auto">
         {(["steps", "contacts"] as const).map((tab) => (
           <button
             key={tab}
@@ -378,9 +378,9 @@ export default function CampaignDetail() {
       {/* ── STEPS TAB ─────────────────────────────────────────────────────── */}
       {mainTab === "steps" && (
         <>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Sequence Steps</h2>
-            <button onClick={() => { setShowAddStep(true); setStepModalTab("edit"); }} className="text-sm text-sky-500 dark:text-sky-400 hover:underline">
+            <button onClick={() => { setShowAddStep(true); setStepModalTab("edit"); }} className="text-sm text-sky-500 dark:text-sky-400 hover:underline self-start sm:self-auto">
               + Add Step
             </button>
           </div>
@@ -424,7 +424,7 @@ export default function CampaignDetail() {
           {showAddStep && (
             <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5">
               {/* modal header */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
                 <h3 className="font-semibold text-slate-800 dark:text-white">Add Sequence Step</h3>
                 {/* Edit | Preview tabs */}
                 <div className="bg-slate-100 dark:bg-surface-800 rounded-lg p-0.5 flex gap-0.5">
@@ -446,7 +446,7 @@ export default function CampaignDetail() {
 
               {stepModalTab === "edit" ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div>
                       <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Channel</label>
                       <select
@@ -534,7 +534,7 @@ export default function CampaignDetail() {
                     </>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button onClick={handleAddStep} className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
                       Add Step
                     </button>
@@ -557,7 +557,7 @@ export default function CampaignDetail() {
                     />
                   )}
 
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex flex-wrap gap-2 items-center justify-between mt-3">
                     <button
                       onClick={() => setStepModalTab("edit")}
                       className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
@@ -575,7 +575,7 @@ export default function CampaignDetail() {
                   {/* Test email mini-modal */}
                   {showTestEmail && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                      <div className="bg-white dark:bg-surface-700 rounded-xl shadow-xl border border-slate-200 dark:border-surface-400/40 p-6 w-full max-w-sm">
+                      <div className="bg-white dark:bg-surface-700 rounded-xl shadow-xl border border-slate-200 dark:border-surface-400/40 p-6 w-full max-w-sm mx-4 overflow-y-auto max-h-[90vh]">
                         <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Send Test Email</h4>
                         <input
                           type="email"
@@ -609,11 +609,11 @@ export default function CampaignDetail() {
       {/* ── CONTACTS TAB ──────────────────────────────────────────────────── */}
       {mainTab === "contacts" && (
         <>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Enrolled Contacts</h2>
             <button
               onClick={openAddContacts}
-              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium"
+              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium self-start sm:self-auto"
             >
               + Add Contacts
             </button>
@@ -627,43 +627,47 @@ export default function CampaignDetail() {
             </div>
           ) : (
             <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-surface-400/20">
-                    {["Name", "Company", "Email", "Status", "Step", "Enrolled", ""].map((h) => (
-                      <th key={h} className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead) => (
-                    <tr key={lead.id} className="border-b border-slate-50 dark:border-surface-400/10 hover:bg-slate-50 dark:hover:bg-surface-600/30 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-white whitespace-nowrap">
-                        {lead.contact.first_name} {lead.contact.last_name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{lead.contact.company || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{lead.contact.email}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[lead.status] ?? STATUS_BADGE.active}`}>
-                          {lead.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">Step {lead.current_step + 1}</td>
-                      <td className="px-4 py-3 text-slate-400 dark:text-slate-500 whitespace-nowrap">{formatDate(lead.enrolled_at)}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleRemoveLead(lead.id)}
-                          className="text-xs text-red-400 hover:text-red-600"
-                        >
-                          Remove
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-surface-400/20">
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Name</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3 hidden md:table-cell">Company</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3 hidden md:table-cell">Email</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Status</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3 hidden sm:table-cell">Step</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3 hidden sm:table-cell">Enrolled</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {leads.map((lead) => (
+                      <tr key={lead.id} className="border-b border-slate-50 dark:border-surface-400/10 hover:bg-slate-50 dark:hover:bg-surface-600/30 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-white whitespace-nowrap">
+                          {lead.contact.first_name} {lead.contact.last_name}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{lead.contact.company || "—"}</td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{lead.contact.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[lead.status] ?? STATUS_BADGE.active}`}>
+                            {lead.status.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">Step {lead.current_step + 1}</td>
+                        <td className="px-4 py-3 text-slate-400 dark:text-slate-500 whitespace-nowrap hidden sm:table-cell">{formatDate(lead.enrolled_at)}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleRemoveLead(lead.id)}
+                            className="text-xs text-red-400 hover:text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
@@ -725,7 +729,7 @@ export default function CampaignDetail() {
             </div>
 
             {/* footer */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-surface-400/20 flex gap-2 justify-end flex-shrink-0">
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-surface-400/20 flex flex-wrap gap-2 justify-end flex-shrink-0">
               <button
                 onClick={() => setShowAddContacts(false)}
                 className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
