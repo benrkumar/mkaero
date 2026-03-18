@@ -7,23 +7,34 @@
 :root { color-scheme: light; }
 html { scroll-behavior: smooth; }
 
-/* Fix Android Chrome 100vh bug — dvh = dynamic viewport height */
-html, body {
-  height: 100%;
-  /* Fallback for browsers that don't support dvh */
-  height: 100dvh;
+/* ── Android Chrome 100vh fix ──────────────────────────────────────────────
+   Android Chrome: 100vh includes the address bar, causing the app to render
+   taller than the visible area. 100dvh (dynamic viewport height) updates as
+   the browser chrome shows/hides. Fallback: html=100% so body inherits it. */
+html {
+  height: 100%;          /* fallback for old browsers */
+  height: 100dvh;        /* dynamic viewport — Chrome 108+, Safari 15.4+ */
+  overflow: hidden;      /* prevent html scroll; app manages its own scroll */
 }
 
 body {
+  height: 100%;          /* inherit from html */
   @apply bg-surface-900 text-white;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Prevent body scroll on mobile — layout handles its own scroll */
+  overflow: hidden;      /* layout handles scrolling, not the body */
+  overscroll-behavior: none;          /* no bounce on Android */
+  -webkit-tap-highlight-color: transparent; /* remove grey tap flash Android */
+  touch-action: manipulation;         /* faster tap response on Android */
+}
+
+/* #root must also fill the viewport so the flex layout can stretch to 100dvh */
+#root {
+  height: 100%;
+  height: 100dvh;
   overflow: hidden;
-  /* Prevent overscroll bounce on Android Chrome */
-  overscroll-behavior: none;
-  /* Enable hardware acceleration */
-  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Light mode base */
