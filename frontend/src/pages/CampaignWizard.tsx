@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateCampaign, updateSequenceStep } from "../api/client";
+import { generateCampaign, updateSequenceStep, getSettings } from "../api/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +94,24 @@ function IconPencil({ className = "w-3.5 h-3.5" }: { className?: string }) {
 export default function CampaignWizard() {
   const navigate = useNavigate();
 
+  // --- API capability detection ---
+  const [hasApollo, setHasApollo] = useState(false);
+  const [hasMailgun, setHasMailgun] = useState(false);
+  const [hasPhantombuster, setHasPhantombuster] = useState(false);
+  const [hasAI, setHasAI] = useState(false);
+
+  useEffect(() => {
+    getSettings().then((data: { has_value: Record<string, boolean> }) => {
+      const hv = data.has_value ?? {};
+      setHasApollo(!!hv.apollo_api_key);
+      setHasMailgun(!!(hv.mailgun_api_key && hv.mailgun_domain));
+      setHasPhantombuster(!!hv.phantombuster_api_key);
+      setHasAI(!!(hv.anthropic_api_key || hv.gemini_api_key));
+      // Auto-set channels based on what's configured
+      setEmailChannel(!!(hv.mailgun_api_key && hv.mailgun_domain));
+    }).catch(() => {});
+  }, []);
+
   // --- Wizard form state ---
   const [description, setDescription] = useState("");
   const [maxLeads, setMaxLeads] = useState(50);
@@ -179,7 +197,7 @@ export default function CampaignWizard() {
       const err = e as { response?: { data?: { detail?: string } } };
       setError(
         err.response?.data?.detail ??
-          "Something went wrong. Check your Anthropic API key in Settings."
+          "Something went wrong. Check your AI API key (Anthropic or Gemini) in Settings."
       );
     } finally {
       setLoading(false);
@@ -295,85 +313,69 @@ export default function CampaignWizard() {
             </div>
           </div>
 
-          {/* Campaign options */}
-          <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-              Campaign Options
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {/* Max leads slider */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">
-                  Max Leads to Fetch
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={10}
-                    max={200}
-                    step={10}
-                    value={maxLeads}
-                    onChange={(e) => setMaxLeads(Number(e.target.value))}
-                    className="flex-1 accent-sky-500"
-                  />
-                  <span className="text-sm font-mono text-sky-400 w-8 text-right">
-                    {maxLeads}
-                  </span>
+          {/* Auto-detected services status */}
+          <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Ready to launch</h2>
+              <a href="/settings" className="text-xs text-sky-500 hover:underline">Configure in Settings →</a>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* AI */}
+              <div className={`rounded-xl p-3 border text-center ${hasAI ? "bg-violet-500/5 border-violet-500/25" : "bg-slate-50 dark:bg-surface-600 border-slate-200 dark:border-surface-400/40 opacity-60"}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${hasAI ? "bg-violet-500/20 text-violet-500" : "bg-slate-200 dark:bg-surface-500 text-slate-400"}`}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 </div>
-                <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">
-                  Requires Apollo API key
-                </p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">AI Content</p>
+                <p className={`text-[10px] mt-0.5 ${hasAI ? "text-violet-500" : "text-slate-400"}`}>{hasAI ? "✓ Ready" : "Not configured"}</p>
               </div>
+              {/* Apollo leads */}
+              <div className={`rounded-xl p-3 border text-center ${hasApollo ? "bg-sky-500/5 border-sky-500/25" : "bg-slate-50 dark:bg-surface-600 border-slate-200 dark:border-surface-400/40 opacity-60"}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${hasApollo ? "bg-sky-500/20 text-sky-500" : "bg-slate-200 dark:bg-surface-500 text-slate-400"}`}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                </div>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Apollo Leads</p>
+                <p className={`text-[10px] mt-0.5 ${hasApollo ? "text-sky-500" : "text-slate-400"}`}>{hasApollo ? "✓ Ready" : "Not configured"}</p>
+              </div>
+              {/* Email */}
+              <div className={`rounded-xl p-3 border text-center ${hasMailgun ? "bg-emerald-500/5 border-emerald-500/25" : "bg-slate-50 dark:bg-surface-600 border-slate-200 dark:border-surface-400/40 opacity-60"}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${hasMailgun ? "bg-emerald-500/20 text-emerald-500" : "bg-slate-200 dark:bg-surface-500 text-slate-400"}`}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,14 22,4"/></svg>
+                </div>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Email Drip</p>
+                <p className={`text-[10px] mt-0.5 ${hasMailgun ? "text-emerald-500" : "text-slate-400"}`}>{hasMailgun ? "✓ Ready" : "Not configured"}</p>
+              </div>
+              {/* LinkedIn */}
+              <div className={`rounded-xl p-3 border text-center ${hasPhantombuster ? "bg-violet-500/5 border-violet-500/25" : "bg-slate-50 dark:bg-surface-600 border-slate-200 dark:border-surface-400/40 opacity-60"}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${hasPhantombuster ? "bg-violet-500/20 text-violet-500" : "bg-slate-200 dark:bg-surface-500 text-slate-400"}`}>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                </div>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">LinkedIn</p>
+                <p className={`text-[10px] mt-0.5 ${hasPhantombuster ? "text-violet-500" : "text-slate-400"}`}>{hasPhantombuster ? "✓ Ready" : "Not configured"}</p>
+              </div>
+            </div>
 
+            {/* Compact options row */}
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-surface-600/60 flex flex-wrap items-center gap-4">
+              {/* Max leads */}
+              <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+                <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Max leads:</label>
+                <input type="range" min={10} max={200} step={10} value={maxLeads}
+                  onChange={(e) => setMaxLeads(Number(e.target.value))} className="flex-1 accent-sky-500" />
+                <span className="text-xs font-mono text-sky-400 w-6 text-right">{maxLeads}</span>
+              </div>
               {/* Channels */}
-              <div>
-                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">
-                  Outreach Channels
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" checked={emailChannel} onChange={(e) => setEmailChannel(e.target.checked)} className="accent-sky-500" />
+                  Email
                 </label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={emailChannel}
-                      onChange={(e) => setEmailChannel(e.target.checked)}
-                      className="accent-sky-500"
-                    />
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
-                      &#9993; Email (Mailgun)
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={linkedinChannel}
-                      onChange={(e) => setLinkedinChannel(e.target.checked)}
-                      className="accent-violet-500"
-                    />
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
-                      &#128100; LinkedIn (Phantombuster)
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Auto-start */}
-              <div className="sm:col-span-2">
-                <label className="flex items-start gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-surface-600 rounded-lg border border-slate-200 dark:border-surface-400/40">
-                  <input
-                    type="checkbox"
-                    checked={autoStart}
-                    onChange={(e) => setAutoStart(e.target.checked)}
-                    className="mt-0.5 accent-emerald-500"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">
-                      Auto-start campaign after creation
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      If unchecked, campaign is saved as draft so you can review
-                      first.
-                    </p>
-                  </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" checked={linkedinChannel} onChange={(e) => setLinkedinChannel(e.target.checked)} className="accent-violet-500" />
+                  LinkedIn
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" checked={autoStart} onChange={(e) => setAutoStart(e.target.checked)} className="accent-emerald-500" />
+                  Auto-start
                 </label>
               </div>
             </div>
@@ -416,7 +418,7 @@ export default function CampaignWizard() {
                 AI is building your campaign...
               </>
             ) : (
-              <>\u2726 Generate Campaign</>
+              <>✦ Generate Campaign</>
             )}
           </button>
           {loading && (

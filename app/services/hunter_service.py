@@ -1,7 +1,12 @@
 """
 Hunter.io lead sourcing service.
 
-Searches for email addresses at a given company domain.
+Two modes:
+  1. Company Discover — filter companies by industry, country, size, type, keywords
+     → returns a list of companies with their domains
+  2. Domain Search — find all emails at a given domain
+     → upserts Contacts into the DB
+
 API docs: https://hunter.io/api-documentation/v2
 """
 import logging
@@ -22,6 +27,63 @@ class HunterService:
     def __init__(self, db: Session):
         self.api_key = get_setting(db, "hunter_api_key")
 
+    # ── Company Discover ──────────────────────────────────────────────────────
+
+    def discover_companies(
+        self,
+        industry: str | None = None,
+        country: str | None = None,
+        size_range: str | None = None,
+        company_type: str | None = None,
+        keyword: str | None = None,
+        max_companies: int = 20,
+    ) -> list[dict]:
+        """
+        Search for companies using Hunter's Companies API.
+        Returns a list of company dicts: {name, domain, country, size, industry, type}.
+        Does NOT touch the DB — caller decides whether to import contacts.
+        """
+        if not self.api_key:
+            raise ValueError("Hunter.io API key is not configured. Add it in Settings.")
+
+        params: dict = {"api_key": self.api_key, "limit": min(max_companies, 100)}
+        if industry:
+            params["industry"] = industry
+        if country:
+            params["country"] = country
+        if size_range:
+            params["size_range"] = size_range
+        if company_type:
+            params["type"] = company_type
+        if keyword:
+            params["keyword"] = keyword
+
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(f"{HUNTER_BASE}/companies", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+
+        raw_companies: list[dict] = data.get("data", {}).get("companies", [])
+        companies = []
+        for c in raw_companies:
+            domain = c.get("domain") or ""
+            if not domain:
+                continue
+            companies.append({
+                "name": c.get("company_name") or c.get("name") or domain,
+                "domain": domain,
+                "country": c.get("country") or "",
+                "size": c.get("size") or "",
+                "industry": c.get("industry") or "",
+                "type": c.get("type") or "",
+                "description": c.get("description") or "",
+            })
+
+        logger.info("Hunter discover returned %d companies", len(companies))
+        return companies
+
+    # ── Domain Search (import contacts) ────────────────────────────────────────
+
     def search_domain(
         self,
         db: Session,
@@ -37,7 +99,7 @@ class HunterService:
             raise ValueError("Hunter.io API key is not configured. Add it in Settings.")
 
         saved: list[Contact] = []
-        limit = min(max_results, 100)  # Hunter free plan caps at 100 per call
+        limit = min(max_results, 100)
         offset = 0
 
         with httpx.Client(timeout=30) as client:
@@ -60,21 +122,18 @@ class HunterService:
                 for entry in emails:
                     if len(saved) >= max_results:
                         break
-                    contact = self._upsert_contact(
-                        db, entry, domain, organization, import_tag
-                    )
+                    contact = self._upsert_contact(db, entry, domain, organization, import_tag)
                     if contact:
                         saved.append(contact)
 
-                # Hunter pagination: if fewer results than limit returned, we're done
                 if len(emails) < limit:
                     break
                 offset += limit
 
-        logger.info(
-            "Hunter.io domain search '%s': %d contacts saved", domain, len(saved)
-        )
+        logger.info("Hunter domain search '%s': %d contacts saved", domain, len(saved))
         return saved
+
+    # ── Internal ─────────────────────────────────────────────────────────────
 
     def _upsert_contact(
         self,
@@ -90,15 +149,10 @@ class HunterService:
 
         existing = db.query(Contact).filter(Contact.email == email).first()
         if existing:
-            # Optionally add tag if not already present
             if import_tag and import_tag not in (existing.tags or []):
                 existing.tags = list(existing.tags or []) + [import_tag]
                 db.commit()
             return existing
-
-        # Build name from first_name/last_name; Hunter sometimes returns these
-        first_name = entry.get("first_name") or ""
-        last_name = entry.get("last_name") or ""
 
         tags: list[str] = []
         if import_tag:
@@ -106,8 +160,8 @@ class HunterService:
 
         contact = Contact(
             id=str(uuid.uuid4()),
-            first_name=first_name,
-            last_name=last_name,
+            first_name=entry.get("first_name") or "",
+            last_name=entry.get("last_name") or "",
             email=email,
             company=organization,
             title=entry.get("position") or "",

@@ -52,8 +52,15 @@ export const fetchApolloLeads = (body: object) =>
   api.post("/apollo/fetch", body).then((r) => r.data);
 
 // ── Hunter.io ─────────────────────────────────────────────────────────────
+export const hunterDiscover = (body: object) =>
+  api.post("/hunter/discover", body).then((r) => r.data);
+
 export const fetchHunterLeads = (body: { domain: string; max_results?: number; import_tag?: string }) =>
   api.post("/hunter/domain-search", body).then((r) => r.data);
+
+// ── Settings ──────────────────────────────────────────────────────────────
+export const getSettings = () =>
+  api.get("/settings").then((r) => r.data);
 
 // ── Campaigns ─────────────────────────────────────────────────────────────
 export const getCampaigns = () =>
