@@ -14,6 +14,7 @@ interface SettingsResponse {
 
 const SECRET_KEYS = new Set([
   "apollo_api_key",
+  "hunter_api_key",
   "mailgun_api_key",
   "anthropic_api_key",
   "gemini_api_key",
@@ -368,10 +369,18 @@ const SECTIONS: SectionDef[] = [
   {
     id: "apollo",
     title: "Apollo.io",
-    description: "Used for contact enrichment and lead data.",
+    description: "Used for filter-based lead search (job title, industry, location).",
     keys: ["apollo_api_key"],
     labels: { apollo_api_key: "API Key" },
     placeholders: { apollo_api_key: "Your Apollo.io API key" },
+  },
+  {
+    id: "hunter",
+    title: "Hunter.io",
+    description: "Used for domain-based email discovery — find contacts at a company by domain.",
+    keys: ["hunter_api_key"],
+    labels: { hunter_api_key: "API Key" },
+    placeholders: { hunter_api_key: "Your Hunter.io API key" },
   },
   {
     id: "mailgun",
@@ -497,6 +506,7 @@ export default function Settings() {
       const allKeys = [
         "ai_provider", "anthropic_api_key", "gemini_api_key",
         ...SECTIONS.flatMap((s) => s.keys),
+        "hunter_api_key",
         "linkedin_session_cookie",
       ];
       const payload: SettingsMap = {};

@@ -10,6 +10,7 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 SECRET_KEYS = {
     "apollo_api_key",
+    "hunter_api_key",
     "mailgun_api_key",
     "anthropic_api_key",
     "gemini_api_key",

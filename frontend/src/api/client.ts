@@ -51,6 +51,10 @@ export const bulkCreateContacts = (contacts: object[]) =>
 export const fetchApolloLeads = (body: object) =>
   api.post("/apollo/fetch", body).then((r) => r.data);
 
+// ── Hunter.io ─────────────────────────────────────────────────────────────
+export const fetchHunterLeads = (body: { domain: string; max_results?: number; import_tag?: string }) =>
+  api.post("/hunter/domain-search", body).then((r) => r.data);
+
 // ── Campaigns ─────────────────────────────────────────────────────────────
 export const getCampaigns = () =>
   api.get("/campaigns").then((r) => r.data);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchApolloLeads } from "../api/client";
+import { fetchApolloLeads, fetchHunterLeads } from "../api/client";
 
 const INDUSTRIES = [
   "Aerospace & Defense",
@@ -112,18 +112,28 @@ function ChipInput({
 }
 
 export default function LeadFinder() {
+  // Source toggle
+  const [source, setSource] = useState<"apollo" | "hunter">("apollo");
+
+  // Apollo state
   const [jobTitles, setJobTitles] = useState<string[]>(["CEO", "CTO", "Founder", "Head of Engineering"]);
   const [locations, setLocations] = useState<string[]>(["India"]);
   const [keywords, setKeywords] = useState<string[]>(["drone", "UAV"]);
   const [industries, setIndustries] = useState<string[]>([]);
   const [seniority, setSeniority] = useState<string[]>([]);
   const [companySizes, setCompanySizes] = useState<string[]>([]);
+
+  // Hunter state
+  const [hunterDomain, setHunterDomain] = useState("");
+
+  // Shared
   const [maxResults, setMaxResults] = useState(50);
-  const [importTag, setImportTag] = useState("apollo-import");
+  const [importTag, setImportTag] = useState(source === "hunter" ? "hunter-import" : "apollo-import");
 
   const [results, setResults] = useState<LeadResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [imported, setImported] = useState(false);
+  const [fetchCount, setFetchCount] = useState(0);
   const [error, setError] = useState("");
 
   const toggleIndustry = (v: string) =>
@@ -133,32 +143,59 @@ export default function LeadFinder() {
   const toggleSize = (v: string) =>
     setCompanySizes((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
 
+  const switchSource = (s: "apollo" | "hunter") => {
+    setSource(s);
+    setResults([]);
+    setImported(false);
+    setError("");
+    setImportTag(s === "hunter" ? "hunter-import" : "apollo-import");
+  };
+
   const handleSearch = async () => {
-    if (!jobTitles.length && !keywords.length) {
-      setError("Add at least one job title or keyword.");
-      return;
-    }
     setError("");
     setImported(false);
     setLoading(true);
     try {
-      const payload: Record<string, unknown> = {
-        job_titles: jobTitles,
-        locations,
-        keywords,
-        max_results: maxResults,
-        import_tag: importTag,
-      };
-      if (industries.length) payload.industries = industries;
-      if (seniority.length) payload.seniority = seniority;
-      if (companySizes.length) payload.company_sizes = companySizes;
-
-      const res = await fetchApolloLeads(payload);
-      setResults(res.contacts ?? res ?? []);
+      if (source === "apollo") {
+        if (!jobTitles.length && !keywords.length) {
+          setError("Add at least one job title or keyword.");
+          setLoading(false);
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          job_titles: jobTitles,
+          locations,
+          keywords,
+          max_results: maxResults,
+          import_tag: importTag,
+        };
+        if (industries.length) payload.industries = industries;
+        if (seniority.length) payload.seniority = seniority;
+        if (companySizes.length) payload.company_sizes = companySizes;
+        const res = await fetchApolloLeads(payload);
+        setResults(res.contacts ?? res ?? []);
+        setFetchCount(res.fetched ?? (res.contacts ?? res ?? []).length);
+      } else {
+        if (!hunterDomain.trim()) {
+          setError("Enter a company domain (e.g. stripe.com).");
+          setLoading(false);
+          return;
+        }
+        const res = await fetchHunterLeads({
+          domain: hunterDomain.trim(),
+          max_results: maxResults,
+          import_tag: importTag,
+        });
+        setFetchCount(res.fetched ?? 0);
+        setResults([]);  // Hunter returns count only; contacts are in DB
+      }
       setImported(true);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
-      setError(err.response?.data?.detail ?? "Lead fetch failed. Check your Apollo API key in Settings.");
+      const fallback = source === "apollo"
+        ? "Lead fetch failed. Check your Apollo API key in Settings."
+        : "Hunter search failed. Check your Hunter.io API key in Settings.";
+      setError(err.response?.data?.detail ?? fallback);
     } finally {
       setLoading(false);
     }
@@ -169,64 +206,136 @@ export default function LeadFinder() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lead Finder</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Pull verified leads from Apollo.io and import them into contacts and campaigns.
+          Pull verified leads from Apollo.io or Hunter.io and import them into contacts.
         </p>
       </div>
 
+      {/* Source toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">
+          Data source
+        </span>
+        <div className="flex bg-slate-100 dark:bg-surface-800 rounded-xl p-1 gap-1">
+          <button
+            onClick={() => switchSource("apollo")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+              source === "apollo"
+                ? "bg-sky-500 text-white shadow"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            Apollo.io
+          </button>
+          <button
+            onClick={() => switchSource("hunter")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+              source === "hunter"
+                ? "bg-orange-500 text-white shadow"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            Hunter.io
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Filters */}
+        {/* Filters panel */}
         <div className="col-span-1 space-y-4">
-          <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-5">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Search Filters</h3>
 
-            <ChipInput label="Job Titles / Roles" value={jobTitles} onChange={setJobTitles} placeholder="CEO, CTO, Procurement..." />
-            <ChipInput label="Locations" value={locations} onChange={setLocations} placeholder="India, Dubai, Singapore..." />
-            <ChipInput label="Keywords" value={keywords} onChange={setKeywords} placeholder="drone, UAV, autonomy..." />
+          {/* Apollo filters */}
+          {source === "apollo" && (
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-5">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Search Filters</h3>
 
-            <div>
-              <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Industry</label>
-              <div className="flex flex-wrap gap-1.5">
-                {INDUSTRIES.map((ind) => (
-                  <button key={ind} onClick={() => toggleIndustry(ind)}
-                    className={`px-2.5 py-1 rounded-lg text-xs transition border ${industries.includes(ind) ? "bg-sky-500/20 text-sky-300 border-sky-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
-                    {ind}
-                  </button>
-                ))}
+              <ChipInput label="Job Titles / Roles" value={jobTitles} onChange={setJobTitles} placeholder="CEO, CTO, Procurement..." />
+              <ChipInput label="Locations" value={locations} onChange={setLocations} placeholder="India, Dubai, Singapore..." />
+              <ChipInput label="Keywords" value={keywords} onChange={setKeywords} placeholder="drone, UAV, autonomy..." />
+
+              <div>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Industry</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {INDUSTRIES.map((ind) => (
+                    <button key={ind} onClick={() => toggleIndustry(ind)}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${industries.includes(ind) ? "bg-sky-500/20 text-sky-300 border-sky-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
+                      {ind}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Seniority</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SENIORITY.map((s) => (
+                    <button key={s} onClick={() => toggleSeniority(s)}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${seniority.includes(s) ? "bg-violet-500/20 text-violet-300 border-violet-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Company Size</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMPANY_SIZE_OPTIONS.map((o) => (
+                    <button key={o.value} onClick={() => toggleSize(o.value)}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition border ${companySizes.includes(o.value) ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          )}
 
-            <div>
-              <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Seniority</label>
-              <div className="flex flex-wrap gap-1.5">
-                {SENIORITY.map((s) => (
-                  <button key={s} onClick={() => toggleSeniority(s)}
-                    className={`px-2.5 py-1 rounded-lg text-xs transition border ${seniority.includes(s) ? "bg-violet-500/20 text-violet-300 border-violet-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
-                    {s}
-                  </button>
-                ))}
+          {/* Hunter filters */}
+          {source === "hunter" && (
+            <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Domain Search</h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Enter a company's domain to find all publicly known email addresses for that organisation.
+              </p>
+
+              <div>
+                <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">
+                  Company Domain
+                </label>
+                <input
+                  className="w-full bg-slate-50 dark:bg-surface-600 border border-slate-200 dark:border-surface-400/50 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-orange-500 transition"
+                  placeholder="e.g. tata.com, mahindra.com"
+                  value={hunterDomain}
+                  onChange={(e) => setHunterDomain(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                />
+                <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">
+                  Just the domain — no https:// needed
+                </p>
+              </div>
+
+              <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3 text-xs text-orange-400 space-y-1">
+                <p className="font-semibold">How Hunter.io works</p>
+                <p>Hunter searches its database of publicly indexed email addresses for a domain. Results include name, job title, and LinkedIn profile when available.</p>
               </div>
             </div>
+          )}
 
-            <div>
-              <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Company Size</label>
-              <div className="flex flex-wrap gap-1.5">
-                {COMPANY_SIZE_OPTIONS.map((o) => (
-                  <button key={o.value} onClick={() => toggleSize(o.value)}
-                    className={`px-2.5 py-1 rounded-lg text-xs transition border ${companySizes.includes(o.value) ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" : "bg-slate-50 dark:bg-surface-600 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-surface-400/50 hover:text-slate-900 dark:hover:text-white"}`}>
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
+          {/* Import settings (shared) */}
           <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Import Settings</h3>
             <div>
               <label className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold block mb-2">Max Results</label>
               <div className="flex items-center gap-3">
-                <input type="range" min={10} max={200} step={10} value={maxResults} onChange={(e) => setMaxResults(parseInt(e.target.value))} className="flex-1 accent-sky-500" />
-                <span className="text-sm font-mono text-sky-400 w-8 text-right">{maxResults}</span>
+                <input type="range" min={10} max={200} step={10} value={maxResults} onChange={(e) => setMaxResults(parseInt(e.target.value))} className={`flex-1 ${source === "hunter" ? "accent-orange-500" : "accent-sky-500"}`} />
+                <span className={`text-sm font-mono w-8 text-right ${source === "hunter" ? "text-orange-400" : "text-sky-400"}`}>{maxResults}</span>
               </div>
             </div>
             <div>
@@ -246,34 +355,59 @@ export default function LeadFinder() {
           )}
 
           <button onClick={handleSearch} disabled={loading}
-            className="w-full bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm transition flex items-center justify-center gap-2">
+            className={`w-full disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm transition flex items-center justify-center gap-2 ${source === "hunter" ? "bg-orange-500 hover:bg-orange-400" : "bg-sky-500 hover:bg-sky-400"}`}>
             {loading ? (
               <>
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Fetching from Apollo...
+                {source === "hunter" ? "Searching Hunter.io..." : "Fetching from Apollo..."}
               </>
-            ) : "Fetch Leads \u2192"}
+            ) : source === "hunter" ? "Search Domain \u2192" : "Fetch Leads \u2192"}
           </button>
         </div>
 
-        {/* Results */}
+        {/* Results panel */}
         <div className="col-span-1 lg:col-span-2">
           <div className="bg-white dark:bg-surface-700 border border-slate-200 dark:border-surface-400/40 rounded-xl overflow-hidden h-full flex flex-col">
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between px-5 py-3.5 border-b border-slate-100 dark:border-surface-400/30">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {results.length > 0 ? `${results.length} leads fetched` : "Results"}
+                {imported
+                  ? source === "hunter"
+                    ? `${fetchCount} contacts imported from ${hunterDomain}`
+                    : `${results.length} leads fetched`
+                  : "Results"}
               </h3>
-              {imported && results.length > 0 && (
+              {imported && (
                 <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">
                   &#10003; Saved to Contacts with tag &ldquo;{importTag}&rdquo;
                 </span>
               )}
             </div>
 
-            {results.length === 0 ? (
+            {/* Hunter success state (no inline table — contacts are in DB) */}
+            {source === "hunter" && imported && (
+              <div className="flex flex-col items-center justify-center flex-1 p-12 text-center">
+                <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-4">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.5">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <p className="text-slate-900 dark:text-white font-semibold text-lg mb-1">
+                  {fetchCount} contact{fetchCount !== 1 ? "s" : ""} imported
+                </p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm max-w-xs">
+                  Contacts from <span className="text-orange-400 font-medium">{hunterDomain}</span> have been saved to your Contacts with the tag <span className="font-medium text-slate-700 dark:text-slate-300">&ldquo;{importTag}&rdquo;</span>.
+                </p>
+                <a href="/contacts" className="mt-5 text-sm text-orange-400 hover:underline">
+                  View in Contacts &rarr;
+                </a>
+              </div>
+            )}
+
+            {/* Apollo results table */}
+            {source === "apollo" && results.length === 0 && (
               <div className="flex flex-col items-center justify-center flex-1 p-12 text-center">
                 <div className="w-16 h-16 bg-slate-50 dark:bg-surface-600 rounded-full flex items-center justify-center mb-4">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.5">
@@ -285,7 +419,23 @@ export default function LeadFinder() {
                   Set your filters and click &ldquo;Fetch Leads&rdquo; to pull verified contacts from Apollo.io.
                 </p>
               </div>
-            ) : (
+            )}
+
+            {source === "hunter" && !imported && (
+              <div className="flex flex-col items-center justify-center flex-1 p-12 text-center">
+                <div className="w-16 h-16 bg-slate-50 dark:bg-surface-600 rounded-full flex items-center justify-center mb-4">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                  </svg>
+                </div>
+                <p className="text-slate-900 dark:text-white font-medium mb-1">Enter a domain to search</p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm max-w-xs">
+                  Hunter.io will find all publicly available email addresses for that company domain.
+                </p>
+              </div>
+            )}
+
+            {source === "apollo" && results.length > 0 && (
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white dark:bg-surface-700">
