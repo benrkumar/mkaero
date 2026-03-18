@@ -12,13 +12,14 @@ SECRET_KEYS = {
     "apollo_api_key",
     "mailgun_api_key",
     "anthropic_api_key",
+    "gemini_api_key",
     "phantombuster_api_key",
     "phantombuster_network_booster_id",
     "phantombuster_message_sender_id",
     "linkedin_session_cookie",
 }
 
-ALL_KEYS = SECRET_KEYS | {"mailgun_domain", "mailgun_from", "mailgun_from_name"}
+ALL_KEYS = SECRET_KEYS | {"mailgun_domain", "mailgun_from", "mailgun_from_name", "ai_provider"}
 
 
 def _mask(val: str) -> str:

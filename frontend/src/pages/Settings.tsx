@@ -16,6 +16,7 @@ const SECRET_KEYS = new Set([
   "apollo_api_key",
   "mailgun_api_key",
   "anthropic_api_key",
+  "gemini_api_key",
   "phantombuster_api_key",
   "phantombuster_network_booster_id",
   "phantombuster_message_sender_id",
@@ -365,15 +366,6 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   {
-    id: "anthropic",
-    title: "Claude AI (Anthropic)",
-    description:
-      "Used for AI-powered message generation and content creation.",
-    keys: ["anthropic_api_key"],
-    labels: { anthropic_api_key: "API Key" },
-    placeholders: { anthropic_api_key: "sk-ant-api03-…" },
-  },
-  {
     id: "apollo",
     title: "Apollo.io",
     description: "Used for contact enrichment and lead data.",
@@ -503,6 +495,7 @@ export default function Settings() {
     setSavingAll(true);
     try {
       const allKeys = [
+        "ai_provider", "anthropic_api_key", "gemini_api_key",
         ...SECTIONS.flatMap((s) => s.keys),
         "linkedin_session_cookie",
       ];
@@ -558,6 +551,94 @@ export default function Settings() {
             className="bg-sky-500 hover:bg-sky-400 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
           >
             {savingAll ? "Saving…" : "Save All"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── AI Provider Section ──────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-surface-700 border border-sky-400/60 dark:border-sky-500/40 shadow-sm shadow-sky-500/10 rounded-xl p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-1">AI Provider</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Choose which AI model powers content generation, the campaign wizard, and email composition.
+            </p>
+          </div>
+        </div>
+
+        {/* Provider toggle */}
+        <div className="flex gap-3 mb-5">
+          {[
+            { value: "claude", label: "Claude", sublabel: "by Anthropic", color: "sky" },
+            { value: "gemini", label: "Gemini", sublabel: "by Google", color: "violet" },
+          ].map((p) => {
+            const active = (values["ai_provider"] || "claude") === p.value;
+            return (
+              <button
+                key={p.value}
+                onClick={() => handleChange("ai_provider", p.value)}
+                className={`flex-1 flex flex-col items-center gap-1 px-4 py-3 rounded-xl border-2 transition-all text-sm font-semibold ${
+                  active
+                    ? p.value === "claude"
+                      ? "border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                      : "border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                    : "border-slate-200 dark:border-surface-400/40 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-surface-400"
+                }`}
+              >
+                <span>{p.label}</span>
+                <span className="text-xs font-normal opacity-70">{p.sublabel}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Anthropic API key */}
+        <div className={`space-y-3 transition-opacity ${(values["ai_provider"] || "claude") === "claude" ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Claude (Anthropic) API Key</p>
+          <Field
+            label="API Key"
+            fieldKey="anthropic_api_key"
+            value={values["anthropic_api_key"] ?? ""}
+            isSecret
+            placeholder="sk-ant-api03-…"
+            onChange={handleChange}
+          />
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Get your key at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:underline">console.anthropic.com</a>
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="my-4 border-t border-slate-100 dark:border-surface-600/60" />
+
+        {/* Gemini API key */}
+        <div className={`space-y-3 transition-opacity ${(values["ai_provider"] || "claude") === "gemini" ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Gemini (Google) API Key</p>
+          <Field
+            label="API Key"
+            fieldKey="gemini_api_key"
+            value={values["gemini_api_key"] ?? ""}
+            isSecret
+            placeholder="AIzaSy…"
+            onChange={handleChange}
+          />
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-violet-500 hover:underline">aistudio.google.com</a> — free tier available.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100 dark:border-surface-600/60">
+          <div className="h-5">
+            {sectionToast["ai_provider"] && (
+              <span className="text-sm text-emerald-500 font-medium animate-pulse">{sectionToast["ai_provider"]}</span>
+            )}
+          </div>
+          <button
+            onClick={() => handleSaveSection(["ai_provider", "anthropic_api_key", "gemini_api_key"], "ai_provider")}
+            disabled={savingSection === "ai_provider"}
+            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+          >
+            {savingSection === "ai_provider" ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

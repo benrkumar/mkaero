@@ -2,7 +2,8 @@
 AI Campaign Wizard Service.
 
 Takes a plain-English description of the target audience and goal,
-then uses Claude to generate a complete, ready-to-launch campaign:
+then uses Claude or Gemini (based on `ai_provider` setting) to generate
+a complete, ready-to-launch campaign:
   - Campaign name + description
   - Apollo.io search filters (auto-translated from description)
   - 4 full email steps (subject + body, brand-voiced)
@@ -11,11 +12,9 @@ then uses Claude to generate a complete, ready-to-launch campaign:
 import json
 import logging
 
-import anthropic
 from sqlalchemy.orm import Session
 
-from app.config import settings
-from app.services.settings_service import get_setting
+from app.services.ai_provider import call_ai, call_ai_fast
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ Always return ONLY valid JSON. No markdown, no preamble.
 
 class CampaignWizardService:
     def __init__(self, db: Session):
-        self.client = anthropic.Anthropic(api_key=get_setting(db, "anthropic_api_key"))
+        self.db = db
 
     def generate_plan(self, description: str, max_leads: int = 100) -> dict:
         """
@@ -116,14 +115,7 @@ Generate a complete outreach campaign plan. Return this exact JSON structure:
   "linkedin_followup": "max 400 chars, after connection accepted, brief value prop + soft ask"
 }}
 """
-        message = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4000,
-            system=WIZARD_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        raw = message.content[0].text.strip()
+        raw = call_ai(self.db, prompt=prompt, system=WIZARD_SYSTEM_PROMPT, max_tokens=4000)
         # Strip markdown fences if present
         if raw.startswith("```"):
             parts = raw.split("```")
@@ -138,14 +130,10 @@ Generate a complete outreach campaign plan. Return this exact JSON structure:
 
     def summarize_email(self, subject: str, body: str) -> str:
         """Generate a 1-sentence summary of an email for dashboard display."""
-        message = self.client.messages.create(
-            model="claude-haiku-4-5",
+        return call_ai_fast(
+            self.db,
+            prompt=f"Summarize this cold email in one sentence (max 15 words):\nSubject: {subject}\nBody: {body[:300]}",
             max_tokens=80,
-            messages=[{
-                "role": "user",
-                "content": f"Summarize this cold email in one sentence (max 15 words):\nSubject: {subject}\nBody: {body[:300]}"
-            }],
         )
-        return message.content[0].text.strip()
 
 

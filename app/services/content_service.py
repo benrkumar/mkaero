@@ -1,19 +1,17 @@
 """
-AI content generation service using Claude API.
+AI content generation service.
 
-Generates personalized email copy and LinkedIn messages for each
-contact based on their role, company, and industry.
+Routes to Claude (Anthropic) or Gemini (Google) based on the `ai_provider`
+setting. Generates personalized email copy and LinkedIn messages.
 """
 import json
 import logging
 from typing import Literal
 
-import anthropic
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models.contact import Contact
-from app.services.settings_service import get_setting
+from app.services.ai_provider import call_ai
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +47,7 @@ STEP_CONTEXT = {
 
 class ContentService:
     def __init__(self, db: Session):
-        self.client = anthropic.Anthropic(api_key=get_setting(db, "anthropic_api_key"))
+        self.db = db
 
     def generate_email(
         self,
@@ -86,13 +84,7 @@ Rules:
 Return ONLY a JSON object with keys "subject" and "body". No preamble.
 """
 
-        message = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=600,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        raw = message.content[0].text.strip()
+        raw = call_ai(self.db, prompt=prompt, max_tokens=600)
         # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -141,13 +133,7 @@ Contact info:
 Return ONLY the message text. No JSON. No preamble.
 """
 
-        message = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        return message.content[0].text.strip()
+        return call_ai(self.db, prompt=prompt, max_tokens=200)
 
     def personalize(self, template: str, contact: Contact) -> str:
         """Replace {{first_name}}, {{company}}, etc. tokens in a template."""
