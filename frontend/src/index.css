@@ -7,10 +7,23 @@
 :root { color-scheme: light; }
 html { scroll-behavior: smooth; }
 
+/* Fix Android Chrome 100vh bug — dvh = dynamic viewport height */
+html, body {
+  height: 100%;
+  /* Fallback for browsers that don't support dvh */
+  height: 100dvh;
+}
+
 body {
   @apply bg-surface-900 text-white;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Prevent body scroll on mobile — layout handles its own scroll */
+  overflow: hidden;
+  /* Prevent overscroll bounce on Android Chrome */
+  overscroll-behavior: none;
+  /* Enable hardware acceleration */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Light mode base */

@@ -78,6 +78,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div
           className="fixed inset-0 z-20 bg-black/50 md:hidden"
           onClick={onClose}
+          onTouchEnd={(e) => { e.preventDefault(); onClose(); }}
         />
       )}
       <aside
@@ -86,7 +87,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           border-r border-slate-200 dark:border-surface-400/20 overflow-y-auto
           transition-transform duration-200
           ${open ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0 md:shrink-0 md:h-screen
+          md:static md:translate-x-0 md:shrink-0 md:h-[100dvh]
         `}
       >
         <div className="p-4 border-b border-slate-200 dark:border-surface-400/20">
@@ -166,11 +167,11 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 function AppInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-surface-900">
+    <div className="flex h-[100dvh] overflow-hidden bg-slate-50 dark:bg-surface-900">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-surface-900">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-surface-900 overscroll-none" style={{ WebkitOverflowScrolling: "touch" }}>
           <Routes>
             <Route path="/"                  element={<Dashboard />} />
             <Route path="/leads"             element={<LeadFinder />} />
