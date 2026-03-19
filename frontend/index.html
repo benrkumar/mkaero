@@ -5,8 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#0f172a" />
     <title>Marketing Control Center</title>
+    <!-- Set --app-height SYNCHRONOUSLY before any CSS renders so there's zero flash on Android -->
+    <script>
+      (function() {
+        var h = window.innerHeight;
+        document.documentElement.style.setProperty('--app-height', h + 'px');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

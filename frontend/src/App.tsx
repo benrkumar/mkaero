@@ -172,7 +172,10 @@ function AppInner() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-surface-900 overscroll-none" style={{ WebkitOverflowScrolling: "touch" }}>
+        <main
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-surface-900 overscroll-none"
+          style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
           <Routes>
             <Route path="/"                  element={<Dashboard />} />
             <Route path="/leads"             element={<LeadFinder />} />

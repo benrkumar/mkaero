@@ -7,6 +7,11 @@
 :root { color-scheme: light; }
 html { scroll-behavior: smooth; }
 
+/* Android safe-area: push content above gesture navigation bar */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ── Viewport height fix (works on ALL Chrome versions including old Android)
    --app-height is set via JS in main.tsx using window.innerHeight which is
    always accurate. Fallback chain: --app-height → 100dvh → 100vh. */
